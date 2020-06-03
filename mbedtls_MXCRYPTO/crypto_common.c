@@ -1,6 +1,6 @@
 /*
  * mbed Microcontroller Library
- * Copyright (c) 2019 Cypress Semiconductor Corporation
+ * Copyright (c) 2019-2020 Cypress Semiconductor Corporation
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,7 @@
 
 /**
  * \file    crypto_common.c
- * \version 1.1
+ * \version 1.2
  *
  * \brief   Source file for common mbedtls acceleration functions
  *
@@ -36,29 +36,129 @@
                                                     return;     \
                                             } while( 0 )
 
+#if defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE)
+
+typedef cy_rslt_t cy_cmgr_rslt_t;
+
+#define CY_CMGR_RSLT_ERR_INUSE          CYHAL_HWMGR_RSLT_ERR_INUSE
+#define CY_CMGR_RSLT_SUCCESS            CY_RSLT_SUCCESS
+
+#define cy_cmgr_crypto_reserve(...)     cyhal_crypto_reserve(__VA_ARGS__)
+#define cy_cmgr_crypto_free(...)        cyhal_crypto_free(__VA_ARGS__)
+
+#else /* defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE) */
+
+typedef uint32_t cy_cmgr_rslt_t;
+
+#define CY_CMGR_RSLT_ERR_INUSE          (0x1001L)
+#define CY_CMGR_RSLT_SUCCESS            (0L)
+
+/** Block count for CRYPTO blocks */
+#define CY_CMGR_CRYPTO_INST_COUNT       CY_IP_MXCRYPTO_INSTANCES
+
+static CRYPTO_Type* CY_GMGR_CRYPTO_BASE_ADDR[CY_CMGR_CRYPTO_INST_COUNT] =
+{
+    CRYPTO,
+};
+
+// Number of Crypto features
+#define CY_CMGR_CRYPTO_FEATURES_NUM        ((uint32_t)CY_CMGR_CRYPTO_COMMON + 1u)
+
+// Defines for maximum available features in Crypto block
+#define CY_CMGR_CRYPTO_FEATURE_CRC_MAX_VAL         (1u)
+#define CY_CMGR_CRYPTO_FEATURE_TRNG_MAX_VAL        (1u)
+#define CY_CMGR_CRYPTO_FEATURE_VU_MAX_VAL          (256u)
+#define CY_CMGR_CRYPTO_FEATURE_COMMON_MAX_VAL      (256u)
+
+static uint16_t cy_cmgr_crypto_features[CY_CMGR_CRYPTO_INST_COUNT][CY_CMGR_CRYPTO_FEATURES_NUM] = {{0}};
+static uint16_t cy_cmgr_crypto_features_max_val[CY_CMGR_CRYPTO_FEATURES_NUM] = {CY_CMGR_CRYPTO_FEATURE_CRC_MAX_VAL,
+                                                                     CY_CMGR_CRYPTO_FEATURE_TRNG_MAX_VAL,
+                                                                     CY_CMGR_CRYPTO_FEATURE_VU_MAX_VAL,
+                                                                     CY_CMGR_CRYPTO_FEATURE_COMMON_MAX_VAL};
+
+static bool cy_cmgr_crypto_is_enabled(uint32_t instance_num)
+{
+    uint8_t reserved = (cy_cmgr_crypto_features[instance_num][CY_CMGR_CRYPTO_CRC]  |
+                        cy_cmgr_crypto_features[instance_num][CY_CMGR_CRYPTO_TRNG] |
+                        cy_cmgr_crypto_features[instance_num][CY_CMGR_CRYPTO_VU]   |
+                        cy_cmgr_crypto_features[instance_num][CY_CMGR_CRYPTO_COMMON]);
+
+    return (reserved != 0);
+}
+
+static cy_cmgr_rslt_t cy_cmgr_crypto_reserve(CRYPTO_Type** base, cy_cmgr_resource_inst_t *resource, cy_cmgr_feature_t feature)
+{
+    cy_cmgr_rslt_t result = CY_CMGR_RSLT_ERR_INUSE;
+
+    for (uint32_t i = 0u; i < CY_CMGR_CRYPTO_INST_COUNT; i++)
+    {
+        if (cy_cmgr_crypto_features[i][feature] < cy_cmgr_crypto_features_max_val[feature])
+        {
+            resource->type = CY_CMGR_RSC_CRYPTO;
+            resource->block_num = i;
+            *base = CY_GMGR_CRYPTO_BASE_ADDR[i];
+
+            result = CY_CMGR_RSLT_SUCCESS;
+
+            //Enable block if this as this first feature that is reserved in block
+            if (!cy_cmgr_crypto_is_enabled(i))
+            {
+                Cy_Crypto_Core_Enable(*base);
+            }
+
+            if(result == CY_CMGR_RSLT_SUCCESS)
+            {
+                ++cy_cmgr_crypto_features[i][feature];
+                break;
+            }
+        }
+    }
+    return result;
+}
+
+static void cy_cmgr_crypto_free(CRYPTO_Type* base, cy_cmgr_resource_inst_t *resource, cy_cmgr_feature_t feature)
+{
+    if (cy_cmgr_crypto_features[resource->block_num][feature] != 0)
+    {
+        --cy_cmgr_crypto_features[resource->block_num][feature];
+    }
+
+    //If this was the last feature then free the underlying crypto block as well.
+    if (!cy_cmgr_crypto_is_enabled(resource->block_num))
+    {
+        if (Cy_Crypto_Core_IsEnabled(base))
+        {
+            Cy_Crypto_Core_Disable(base);
+        }
+
+        resource->type = CY_CMGR_RSC_INVALID;
+    }
+}
+#endif /* defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE) */
+
 /*******************************************************************************
 *       Crypto object manage functions
 *******************************************************************************/
-bool cy_hw_crypto_reserve(cy_hw_crypto_t *obj, cyhal_crypto_feature_t feature)
+bool cy_hw_crypto_reserve(cy_hw_crypto_t *obj, cy_cmgr_feature_t feature)
 {
-    cy_rslt_t status;
+    cy_cmgr_rslt_t status;
     CY_ASSERT( obj != NULL );
 
-    status = cyhal_crypto_reserve(&(obj->base), &(obj->resource), feature);
-    if (CY_RSLT_SUCCESS == status)
+    status = cy_cmgr_crypto_reserve(&(obj->base), &(obj->resource), feature);
+    if (CY_CMGR_RSLT_SUCCESS == status)
     {
         obj->feature = feature;
     }
 
-    return (CY_RSLT_SUCCESS == status);
+    return (CY_CMGR_RSLT_SUCCESS == status);
 }
 
 void cy_hw_crypto_release(cy_hw_crypto_t *obj)
 {
     CY_ASSERT( obj != NULL );
-    if (obj->resource.type == CYHAL_RSC_CRYPTO)
+    if (obj->resource.type == CY_CMGR_RSC_CRYPTO)
     {
-        cyhal_crypto_free(obj->base, &(obj->resource), obj->feature);
+        cy_cmgr_crypto_free(obj->base, &(obj->resource), obj->feature);
     }
 }
 
@@ -68,7 +168,7 @@ void cy_hw_zeroize(void *data, uint32_t dataSize)
     CY_CRYPTO_CHECK_PARAM( data != NULL );
     CY_CRYPTO_CHECK_PARAM( dataSize > 0u );
 
-    if (cy_hw_crypto_reserve(&obj, CYHAL_CRYPTO_COMMON))
+    if (cy_hw_crypto_reserve(&obj, CY_CMGR_CRYPTO_COMMON))
     {
         Cy_Crypto_Core_MemSet(obj.base, data, 0u, (uint16_t)dataSize);
     }
@@ -82,7 +182,7 @@ void cy_hw_sha_init(void *ctx, uint32_t ctxSize)
 
     cy_hw_zeroize(ctx, ctxSize);
 
-    (void)cy_hw_crypto_reserve((cy_hw_crypto_t *)ctx, CYHAL_CRYPTO_COMMON);
+    (void)cy_hw_crypto_reserve((cy_hw_crypto_t *)ctx, CY_CMGR_CRYPTO_COMMON);
 }
 
 void cy_hw_sha_free(void *ctx, uint32_t ctxSize)

@@ -5,7 +5,7 @@ This repository contains mbedTLS hardware accelerated basic cryptography impleme
 It provides an easy to use mbedTLS library for PSoC 6 MCU with crypto accelerated hardware. The goal is to make the cryptography features of Cypress devices available to the developer using a simple configuration flow.
 
 ### mbedTLS library
-The **[mbedTLS](http://https://github.com/ARMmbed/mbedtls)** library makes it easy for developers to include cryptographic and SSL/TLS capabilities in their products, facilitating this functionality with a minimal coding footprint.
+The **[mbedTLS]** library makes it easy for developers to include cryptographic and SSL/TLS capabilities in their products, facilitating this functionality with a minimal coding footprint.
 
 mbedTLS provides a software-only implementation of basic crypto algorithms. The API is defined by ARM and widely utilized in embedded devices for crypto services. The available modules are:
 
@@ -21,9 +21,9 @@ mbedTLS provides a software-only implementation of basic crypto algorithms. The 
 This repo is implemented as an extension of mbedTLS to add PSoC6 MCU hardware acceleration for the basic crypto algorithms.
 It requires these other Cypress products:
 
-- [psoc6pdl](https://github.com/cypresssemiconductorco/psoc6pdl) - PDL driver library
-- [psoc6hal](https://github.com/cypresssemiconductorco/psoc6hal) - HAL layer for Cypress PSoC6 MCUs
-- [core-lib](https://github.com/cypresssemiconductorco/core-lib) - Core library for Cypress PSoC6 MCUs
+- [psoc6pdl] - PDL driver library
+- [psoc6hal] - HAL layer for Cypress PSoC6 MCUs
+- [core-lib] - Core library for Cypress PSoC6 MCUs
 
 mbedTLS library v2.x provides a standardized method to extend the implementation by defining special macros.
 
@@ -94,18 +94,19 @@ To use the mbedTLS library with Cypress hardware acceleration, perform these ste
     ```
 1. make the project
 
-### How to use mbedTLS library with accelerated ALT implementations in ModusToolbox 2.0
-To use mbedTLS library with accelerated ALT implementations in ModusToolbox 2.0, the project should have the required submodules:
+### How to use mbedTLS library with accelerated ALT implementations in ModusToolbox 2.x
+To use mbedTLS library with accelerated ALT implementations in ModusToolbox 2.x, the project should have the required submodules:
 
-- [psoc6pdl](https://github.com/cypresssemiconductorco/psoc6pdl)
-- [psoc6hal](https://github.com/cypresssemiconductorco/psoc6hal)
-- [core-lib](https://github.com/cypresssemiconductorco/core-lib)
+- [psoc6pdl]
+- [psoc6hal]
+- [core-lib]
 
 Then perform these steps:
 
 1. make all steps from previous section to download and setup mbedtls library and acceleration files
 1. add a new text file named ***.cyignore*** to your project root directory with this content:
     ```
+    libs/mbedtls/3rdparty
     libs/mbedtls/configs
     libs/mbedtls/doxygen
     libs/mbedtls/programs
@@ -121,6 +122,29 @@ Then perform these steps:
     libs/mbedtls/crypto/tests
     libs/mbedtls/crypto/visualc
     ```
+
+### How to use mbedTLS library with or without [psoc6hal] in ModusToolbox 2.x
+The [cy-mbedtls-acceleration] package requires concurrent access from two CPUs to the CRYPTO hardware.
+The acceleration package has its own internal resource management to control concurrent access.
+Or you can use the Cypress Hardware Abstraction Layer (HAL).
+
+By default ModusToolbox uses [psoc6hal] for access to all hardware resources including CRYPTO hardware.
+It defines macro **CY_USING_HAL**. In this case the [cy-mbedtls-acceleration] library uses [psoc6hal]
+instead of own internal resource management.
+
+To use the acceleration package internal resource management instead of [psoc6hal], disable the CRYPTO HAL. The project defines macro **CY_CRYPTO_HAL_DISABLE**.
+
+_**Note:** that not disables the HAL completely, so the application still use HAL for other hardware resources as usually._
+
+Define the macro in the project's configuration files (for example)
+```c++
+#define CY_CRYPTO_HAL_DISABLE
+```
+or in the main Makefile (for example):
+```make
+# Add additional defines to the build process (without a leading -D).
+DEFINES=MBEDTLS_CONFIG_FILE="<mbedtls-user-config.h>" CY_CRYPTO_HAL_DISABLE
+```
 
 ### Features
 
@@ -148,18 +172,28 @@ Supported algorithms:
     * verify
 
 ### License
-This project is licensed under the [Apache 2.0 License](http://www.apache.org/licenses/) - see the [LICENSE](LICENSE.txt) file for details
+This project is licensed under the [Apache 2.0 License] - see the [LICENSE] file for details
 
 ### More information
-* [Cypress PSoC6 MCU acceleration for mbedTLS library RELEASE.md](./RELEASE.md)
+* [Cypress PSoC6 MCU acceleration for mbedTLS library RELEASE.md][RELEASE.md]
 * [Peripheral Driver Library API Reference Manual](https://cypresssemiconductorco.github.io/psoc6pdl/pdl_api_reference_manual/html/index.html)
 * [PSoC 6 Technical Reference Manuals](https://www.cypress.com/search/all/PSoC%206%20Technical%20Reference%20Manual?f%5b0%5d=meta_type%3Atechnical_documents&f%5b1%5d=resource_meta_type%3A583)
 * [PSoC 6 MCU Datasheets](https://www.cypress.com/search/all?f%5b0%5d=meta_type%3Atechnical_documents&f%5b1%5d=resource_meta_type%3A575&f%5b2%5d=field_related_products%3A114026)
-* [mbed-os repository](https://github.com/ARMmbed/mbed-os)
-* [mbedtls repository](https://github.com/ARMmbed/mbedtls)
+* [mbed-os repository][mbed-os]
+* [mbedtls repository][mbedTLS]
 * [Alternative cryptography engines implementation](https://tls.mbed.org/kb/development/hw_acc_guidelines)
 * [mbedTLS supported features](https://tls.mbed.org/core-features)
 * [Cypress Semiconductor](http://www.cypress.com)
 
 ---
 © Cypress Semiconductor Corporation, 2019.
+
+[mbedTLS]: http://https://github.com/ARMmbed/mbedtls
+[mbed-os]: https://github.com/ARMmbed/mbed-os
+[psoc6pdl]: https://github.com/cypresssemiconductorco/psoc6pdl
+[psoc6hal]: https://github.com/cypresssemiconductorco/psoc6hal
+[core-lib]: https://github.com/cypresssemiconductorco/core-lib
+[cy-mbedtls-acceleration]: https://github.com/cypresssemiconductorco/cy-mbedtls-acceleration
+[Apache 2.0 License]: http://www.apache.org/licenses/
+[LICENSE]: LICENSE.txt
+[RELEASE.md]: RELEASE.md

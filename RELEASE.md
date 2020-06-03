@@ -29,16 +29,17 @@ This version of the PSoC6 MCUs acceleration for mbedTLS library was validated fo
 | PSoC6 Core Library                                      | 1.0.0   |
 | mbedTLS                                                 | 2.19.1  |
 | GCC Compiler                                            | 7.2.1   |
-| IAR Compiler                                            | 8.32    |
-| ARM Compiler 6                                          | 6.11    |
+| IAR Compiler                                            | 8.20    |
+| ARM Compiler 6                                          | 6.12    |
 | MBED OS                                                 | 5.13.1  |
 
 ### Change log
 
-| Version |	Changes                                      | Reason for Change |
-| :----:  |	:---                                         | :----             |
-| 1.1     |	Reorganized SHA implementation               | New Cypress MCUs support |
-| 1.0     |	The initial version                          |                   |
+| Version |	Changes                                       | Reason for Change |
+| :----:  |	:---                                          | :----             |
+| 1.2     |	New internal resource management instead of using psoc6hal | Simple projects support without psoc6hal |
+| 1.1     |	Reorganized SHA implementation                | New Cypress MCUs support |
+| 1.0     |	The initial version                           |                   |
 
 ### More information
 * [Peripheral Driver Library API Reference Manual](https://cypresssemiconductorco.github.io/psoc6pdl/pdl_api_reference_manual/html/index.html)

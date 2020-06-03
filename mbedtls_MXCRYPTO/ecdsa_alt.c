@@ -1,7 +1,7 @@
 /*
  *  ECDSA sign, verify and key generation functions
  *
- *  Copyright (C) 2019 Cypress Semiconductor Corporation
+ *  Copyright (C) 2019-2020 Cypress Semiconductor Corporation
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -19,7 +19,7 @@
 
 /*
  * \file     ecdsa_alt.c
- * \version  1.1
+ * \version  1.2
  *
  * \brief This file provides an API for Elliptic Curves sign and verifications.
  *
@@ -111,7 +111,7 @@ int mbedtls_ecdsa_sign( mbedtls_ecp_group *grp, mbedtls_mpi *r, mbedtls_mpi *s,
         return( MBEDTLS_ERR_ECP_INVALID_KEY );
 
     /* Reserve the crypto hardware for the operation */
-    cy_hw_crypto_reserve(&crypto_obj, CYHAL_CRYPTO_VU);
+    cy_hw_crypto_reserve(&crypto_obj, CY_CMGR_CRYPTO_VU);
 
     dp = Cy_Crypto_Core_ECC_GetCurveParams(key.curveID);
 
@@ -200,7 +200,7 @@ int mbedtls_ecdsa_verify( mbedtls_ecp_group *grp,
     MBEDTLS_MPI_CHK( (key.curveID == CY_CRYPTO_ECC_ECP_NONE) ? MBEDTLS_ERR_ECP_BAD_INPUT_DATA : 0);
 
     /* Reserve the crypto hardware for the operation */
-    cy_hw_crypto_reserve(&crypto_obj, CYHAL_CRYPTO_VU);
+    cy_hw_crypto_reserve(&crypto_obj, CY_CMGR_CRYPTO_VU);
 
     dp = Cy_Crypto_Core_ECC_GetCurveParams(key.curveID);
 

@@ -18,32 +18,36 @@
  */
 
 /**
- * \file ecp.h
- * \version 1.2
+ * \file    ecp.h
+ * \version 1.3
  *
- * \brief This file provides an API for Elliptic Curves over GF(P) (ECP).
+ * \brief   This file provides an API for Elliptic Curves over GF(P) (ECP).
  *
- * The use of ECP in cryptography and TLS is defined in
- * <em>Standards for Efficient Cryptography Group (SECG): SEC1
- * Elliptic Curve Cryptography</em> and
- * <em>RFC-4492: Elliptic Curve Cryptography (ECC) Cipher Suites
- * for Transport Layer Security (TLS)</em>.
+ *          The use of ECP in cryptography and TLS is defined in
+ *          <em>Standards for Efficient Cryptography Group (SECG): SEC1
+ *          Elliptic Curve Cryptography</em> and
+ *          <em>RFC-4492: Elliptic Curve Cryptography (ECC) Cipher Suites
+ *          for Transport Layer Security (TLS)</em>.
  *
- * <em>RFC-2409: The Internet Key Exchange (IKE)</em> defines ECP
- * group types.
+ *          <em>RFC-2409: The Internet Key Exchange (IKE)</em> defines ECP
+ *          group types.
  *
  */
 
 #ifndef ECP_ALT_H
 #define ECP_ALT_H
 
-#include "bignum.h"
+#include "mbedtls/bignum.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #if defined(MBEDTLS_ECP_ALT)
+
+#if defined(MBEDTLS_ECP_RESTARTABLE)
+#error MBEDTLS_ECP_RESTARTABLE is not supported by Cypress implementation
+#endif
 
 #include "cy_crypto_core_ecc.h"
 
@@ -107,12 +111,6 @@ typedef struct mbedtls_ecp_group
     size_t T_size;              /*!< The number of pre-computed points. */
 }
 mbedtls_ecp_group;
-
-#define MBEDTLS_ECP_BUDGET( ops )   /* no-op; for compatibility */
-
-/* We want to declare restartable versions of existing functions anyway */
-typedef void mbedtls_ecp_restart_ctx;
-
 
 /**
  * \name SECTION: Module settings

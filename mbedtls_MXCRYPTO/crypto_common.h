@@ -18,7 +18,7 @@
 
 /**
  * \file    crypto_common.h
- * \version 1.2
+ * \version 1.3
  *
  * \brief   Header file for common mbedtls acceleration functions
  *
@@ -27,15 +27,28 @@
 #if !defined(CRYPTO_COMMON_H)
 #define CRYPTO_COMMON_H
 
-#if defined(MBEDTLS_CONFIG_FILE)
-#include MBEDTLS_CONFIG_FILE
+#if !defined(MBEDTLS_CONFIG_FILE)
+#include "mbedtls/config.h"
 #else
-#include "config.h"
+#include MBEDTLS_CONFIG_FILE
 #endif
 
-#include "mbedtls/ecp.h"
+#if defined(MBEDTLS_PLATFORM_C)
+#include "mbedtls/platform.h"
+#else
+#include <stdlib.h>
+#include <string.h>
+#define  mbedtls_calloc      calloc
+#define  mbedtls_free        free
+#define  mbedtls_memcpy      memcpy
+#define  mbedtls_memset      memset
+#endif
 
-#include "cy_crypto_core_sha.h"
+#ifndef mbedtls_malloc
+#define mbedtls_malloc(...)  mbedtls_calloc(1, __VA_ARGS__)
+#endif
+
+#include "cy_crypto_core.h"
 
 #if defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE)
 
@@ -56,6 +69,8 @@ typedef cyhal_resource_inst_t  cy_cmgr_resource_inst_t;
 
 #define CY_CMGR_RSC_CRYPTO       CYHAL_RSC_CRYPTO
 #define CY_CMGR_RSC_INVALID      CYHAL_RSC_INVALID
+
+#define CY_CMGR_RESOURCE_INIT  {CY_CMGR_RSC_INVALID, 0U, 0U}
 
 #else /* defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE) */
 
@@ -90,38 +105,43 @@ typedef struct
     uint8_t            block_num; //!< The resource block index
 } cy_cmgr_resource_inst_t;
 
+#define CY_CMGR_RESOURCE_INIT  {CY_CMGR_RSC_INVALID, 0U}
+
 #endif /* defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE) */
 
 /** CRYPTO object */
 typedef struct {
-#if defined(CY_IP_MXCRYPTO_INSTANCES) || defined(CPUSS_CRYPTO_PRESENT)
     CRYPTO_Type*                base;
     cy_cmgr_resource_inst_t     resource;
     cy_cmgr_feature_t           feature;
-#endif
-} cy_hw_crypto_t;
+} cy_cmgr_crypto_hw_t;
 
-bool cy_hw_crypto_reserve(cy_hw_crypto_t *obj, cy_cmgr_feature_t feature);
-void cy_hw_crypto_release(cy_hw_crypto_t *obj);
+#define CY_CMGR_CRYPTO_OBJ_INIT  {NULL, CY_CMGR_RESOURCE_INIT, CY_CMGR_CRYPTO_COMMON}
+
+bool cy_hw_crypto_reserve(cy_cmgr_crypto_hw_t *obj, cy_cmgr_feature_t feature);
+void cy_hw_crypto_release(cy_cmgr_crypto_hw_t *obj);
 
 void cy_hw_zeroize(void *data, uint32_t dataSize);
 
 void cy_hw_sha_init(void *ctx, uint32_t ctxSize);
 void cy_hw_sha_free(void *ctx, uint32_t ctxSize);
 
-int cy_hw_sha_start (cy_hw_crypto_t *obj, cy_stc_crypto_sha_state_t *hashState,
+int cy_hw_sha_start (cy_cmgr_crypto_hw_t *obj, cy_stc_crypto_sha_state_t *hashState,
                      cy_en_crypto_sha_mode_t shaMode, void *shaBuffers);
 
-int cy_hw_sha_update(cy_hw_crypto_t *obj, cy_stc_crypto_sha_state_t *hashState,
+int cy_hw_sha_update(cy_cmgr_crypto_hw_t *obj, cy_stc_crypto_sha_state_t *hashState,
                      const uint8_t *in, uint32_t inlen);
 
-int cy_hw_sha_finish(cy_hw_crypto_t *obj, cy_stc_crypto_sha_state_t *hashState,
+int cy_hw_sha_finish(cy_cmgr_crypto_hw_t *obj, cy_stc_crypto_sha_state_t *hashState,
                      uint8_t *output);
 
 void cy_hw_sha_clone(void *ctxDst, const void *ctxSrc, uint32_t ctxSize,
                      cy_stc_crypto_sha_state_t *hashStateDst, void *shaBuffersDst);
 
-int cy_hw_sha_process(cy_hw_crypto_t *obj, cy_stc_crypto_sha_state_t *hashState,
+int cy_hw_sha_process(cy_cmgr_crypto_hw_t *obj, cy_stc_crypto_sha_state_t *hashState,
                      const uint8_t *in);
+
+void cy_hw_memset(void *data, uint8_t val, uint32_t dataSize);
+void cy_hw_memcpy(void *dstAddr, void const *srcAddr, uint32_t dataSize);
 
 #endif /* (CRYPTO_COMMON_H) */

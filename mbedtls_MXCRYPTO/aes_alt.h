@@ -17,8 +17,8 @@
  */
 
 /**
- * \file aes_alt.h
- * \version 1.2
+ * \file    aes_alt.h
+ * \version 1.3
  *
  * \brief   This file contains AES definitions and functions.
  *
@@ -58,7 +58,7 @@
  */
 typedef struct mbedtls_aes_context
 {
-    cy_hw_crypto_t obj;
+    cy_cmgr_crypto_hw_t obj;
     cy_stc_crypto_aes_state_t aes_state;
     cy_stc_crypto_aes_buffers_t aes_buffers;
 }

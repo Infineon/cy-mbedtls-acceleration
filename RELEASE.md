@@ -24,19 +24,20 @@ This version of the PSoC6 MCUs acceleration for mbedTLS library was validated fo
 | Software and Tools                                      | Version |
 | :---                                                    | :----:  |
 | ModusToolbox Software Environment                       | 2.0     |
-| PSoC6 Peripheral Driver Library (PDL)                   | 1.3.1   |
+| PSoC6 Peripheral Driver Library (PDL)                   | 1.6.1   |
 | PSoC6 Hardware Abstraction Layer(HAL)                   | 1.0.0   |
 | PSoC6 Core Library                                      | 1.0.0   |
-| mbedTLS                                                 | 2.19.1  |
+| mbedTLS                                                 | 2.24    |
 | GCC Compiler                                            | 7.2.1   |
 | IAR Compiler                                            | 8.20    |
 | ARM Compiler 6                                          | 6.12    |
-| MBED OS                                                 | 5.13.1  |
+| MBED OS                                                 | 6.2.1   |
 
 ### Change log
 
 | Version |	Changes                                       | Reason for Change |
 | :----:  |	:---                                          | :----             |
+| 1.3     |	Added ECDH acceleration, small code and documentation cleanup | ModusToolbox 2.X support |
 | 1.2     |	New internal resource management instead of using psoc6hal | Simple projects support without psoc6hal |
 | 1.1     |	Reorganized SHA implementation                | New Cypress MCUs support |
 | 1.0     |	The initial version                           |                   |
@@ -52,4 +53,4 @@ This version of the PSoC6 MCUs acceleration for mbedTLS library was validated fo
 * [Cypress Semiconductor](http://www.cypress.com)
 
 ---
-© Cypress Semiconductor Corporation, 2019.
+© Cypress Semiconductor Corporation, 2019-2020.

@@ -18,13 +18,11 @@
 
 /**
  * \file    crypto_common.c
- * \version 1.2
+ * \version 1.3
  *
  * \brief   Source file for common mbedtls acceleration functions
  *
  */
-
-#include <string.h>
 
 #include "crypto_common.h"
 #include "cy_crypto_common.h"
@@ -61,10 +59,10 @@ static CRYPTO_Type* CY_GMGR_CRYPTO_BASE_ADDR[CY_CMGR_CRYPTO_INST_COUNT] =
     CRYPTO,
 };
 
-// Number of Crypto features
+/* Number of Crypto features */
 #define CY_CMGR_CRYPTO_FEATURES_NUM        ((uint32_t)CY_CMGR_CRYPTO_COMMON + 1u)
 
-// Defines for maximum available features in Crypto block
+/* Defines for maximum available features in Crypto block */
 #define CY_CMGR_CRYPTO_FEATURE_CRC_MAX_VAL         (1u)
 #define CY_CMGR_CRYPTO_FEATURE_TRNG_MAX_VAL        (1u)
 #define CY_CMGR_CRYPTO_FEATURE_VU_MAX_VAL          (256u)
@@ -100,7 +98,7 @@ static cy_cmgr_rslt_t cy_cmgr_crypto_reserve(CRYPTO_Type** base, cy_cmgr_resourc
 
             result = CY_CMGR_RSLT_SUCCESS;
 
-            //Enable block if this as this first feature that is reserved in block
+            /* Enable block if this as this first feature that is reserved in block */
             if (!cy_cmgr_crypto_is_enabled(i))
             {
                 Cy_Crypto_Core_Enable(*base);
@@ -123,7 +121,7 @@ static void cy_cmgr_crypto_free(CRYPTO_Type* base, cy_cmgr_resource_inst_t *reso
         --cy_cmgr_crypto_features[resource->block_num][feature];
     }
 
-    //If this was the last feature then free the underlying crypto block as well.
+    /* If this was the last feature then free the underlying crypto block as well. */
     if (!cy_cmgr_crypto_is_enabled(resource->block_num))
     {
         if (Cy_Crypto_Core_IsEnabled(base))
@@ -134,26 +132,40 @@ static void cy_cmgr_crypto_free(CRYPTO_Type* base, cy_cmgr_resource_inst_t *reso
         resource->type = CY_CMGR_RSC_INVALID;
     }
 }
+
+static bool cy_cmgr_crypto_is_reserved(cy_cmgr_crypto_hw_t *obj, cy_cmgr_feature_t feature)
+{
+    bool status = false;
+
+    if ((obj != NULL) && (obj->feature == feature) && (obj->resource.type == CY_CMGR_RSC_CRYPTO))
+        status = true;
+
+    return status;
+}
 #endif /* defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE) */
 
 /*******************************************************************************
 *       Crypto object manage functions
 *******************************************************************************/
-bool cy_hw_crypto_reserve(cy_hw_crypto_t *obj, cy_cmgr_feature_t feature)
+bool cy_hw_crypto_reserve(cy_cmgr_crypto_hw_t *obj, cy_cmgr_feature_t feature)
 {
-    cy_cmgr_rslt_t status;
+    cy_cmgr_rslt_t status = CY_CMGR_RSLT_SUCCESS;
     CY_ASSERT( obj != NULL );
 
-    status = cy_cmgr_crypto_reserve(&(obj->base), &(obj->resource), feature);
-    if (CY_CMGR_RSLT_SUCCESS == status)
+    #if !defined(CY_USING_HAL) || defined(CY_CRYPTO_HAL_DISABLE)
+    if (!cy_cmgr_crypto_is_reserved((cy_cmgr_crypto_hw_t *)obj, feature))
+    #endif /* !defined(CY_USING_HAL) || defined(CY_CRYPTO_HAL_DISABLE) */
     {
-        obj->feature = feature;
+        status = cy_cmgr_crypto_reserve(&(obj->base), &(obj->resource), feature);
+        if (CY_CMGR_RSLT_SUCCESS == status)
+        {
+            obj->feature = feature;
+        }
     }
-
     return (CY_CMGR_RSLT_SUCCESS == status);
 }
 
-void cy_hw_crypto_release(cy_hw_crypto_t *obj)
+void cy_hw_crypto_release(cy_cmgr_crypto_hw_t *obj)
 {
     CY_ASSERT( obj != NULL );
     if (obj->resource.type == CY_CMGR_RSC_CRYPTO)
@@ -164,15 +176,7 @@ void cy_hw_crypto_release(cy_hw_crypto_t *obj)
 
 void cy_hw_zeroize(void *data, uint32_t dataSize)
 {
-    cy_hw_crypto_t obj;
-    CY_CRYPTO_CHECK_PARAM( data != NULL );
-    CY_CRYPTO_CHECK_PARAM( dataSize > 0u );
-
-    if (cy_hw_crypto_reserve(&obj, CY_CMGR_CRYPTO_COMMON))
-    {
-        Cy_Crypto_Core_MemSet(obj.base, data, 0u, (uint16_t)dataSize);
-    }
-    cy_hw_crypto_release(&obj);
+    cy_hw_memset(data, 0u, dataSize);
 }
 
 void cy_hw_sha_init(void *ctx, uint32_t ctxSize)
@@ -182,7 +186,7 @@ void cy_hw_sha_init(void *ctx, uint32_t ctxSize)
 
     cy_hw_zeroize(ctx, ctxSize);
 
-    (void)cy_hw_crypto_reserve((cy_hw_crypto_t *)ctx, CY_CMGR_CRYPTO_COMMON);
+    (void)cy_hw_crypto_reserve((cy_cmgr_crypto_hw_t *)ctx, CY_CMGR_CRYPTO_COMMON);
 }
 
 void cy_hw_sha_free(void *ctx, uint32_t ctxSize)
@@ -190,11 +194,12 @@ void cy_hw_sha_free(void *ctx, uint32_t ctxSize)
     CY_CRYPTO_CHECK_PARAM( ctx != NULL );
     CY_CRYPTO_CHECK_PARAM( ctxSize > 0u);
 
-    cy_hw_crypto_release((cy_hw_crypto_t *)ctx);
+    cy_hw_crypto_release((cy_cmgr_crypto_hw_t *)ctx);
+
     cy_hw_zeroize(ctx, ctxSize);
 }
 
-int cy_hw_sha_start(cy_hw_crypto_t *obj, cy_stc_crypto_sha_state_t *hashState,
+int cy_hw_sha_start(cy_cmgr_crypto_hw_t *obj, cy_stc_crypto_sha_state_t *hashState,
                     cy_en_crypto_sha_mode_t shaMode, void *shaBuffers)
 {
     cy_en_crypto_status_t status;
@@ -213,7 +218,7 @@ int cy_hw_sha_start(cy_hw_crypto_t *obj, cy_stc_crypto_sha_state_t *hashState,
     return (0);
 }
 
-int cy_hw_sha_update(cy_hw_crypto_t *obj, cy_stc_crypto_sha_state_t *hashState,
+int cy_hw_sha_update(cy_cmgr_crypto_hw_t *obj, cy_stc_crypto_sha_state_t *hashState,
                      const uint8_t *in, uint32_t inlen)
 {
     cy_en_crypto_status_t status;
@@ -231,7 +236,7 @@ int cy_hw_sha_update(cy_hw_crypto_t *obj, cy_stc_crypto_sha_state_t *hashState,
     return (0);
 }
 
-int cy_hw_sha_finish(cy_hw_crypto_t *obj, cy_stc_crypto_sha_state_t *hashState, uint8_t *output)
+int cy_hw_sha_finish(cy_cmgr_crypto_hw_t *obj, cy_stc_crypto_sha_state_t *hashState, uint8_t *output)
 {
     cy_en_crypto_status_t status;
 
@@ -248,7 +253,7 @@ int cy_hw_sha_finish(cy_hw_crypto_t *obj, cy_stc_crypto_sha_state_t *hashState, 
     return (0);
 }
 
-int cy_hw_sha_process(cy_hw_crypto_t *obj, cy_stc_crypto_sha_state_t *hashState, const uint8_t *in)
+int cy_hw_sha_process(cy_cmgr_crypto_hw_t *obj, cy_stc_crypto_sha_state_t *hashState, const uint8_t *in)
 {
     cy_en_crypto_status_t status;
 
@@ -267,6 +272,35 @@ void cy_hw_sha_clone( void *ctxDst, const void *ctxSrc, uint32_t ctxSize,
     CY_CRYPTO_CHECK_PARAM( hashStateDst != NULL );
     CY_CRYPTO_CHECK_PARAM( shaBuffersDst != NULL );
 
-    Cy_Crypto_Core_MemCpy(((cy_hw_crypto_t *)ctxSrc)->base, ctxDst, ctxSrc, (uint16_t)ctxSize);
-    Cy_Crypto_Core_Sha_Init(((cy_hw_crypto_t *)ctxSrc)->base, hashStateDst, (cy_en_crypto_sha_mode_t)hashStateDst->mode, shaBuffersDst);
+    (void)cy_hw_crypto_reserve((cy_cmgr_crypto_hw_t *)ctxDst, CY_CMGR_CRYPTO_COMMON);
+
+    Cy_Crypto_Core_MemCpy(((cy_cmgr_crypto_hw_t *)ctxSrc)->base, ctxDst, ctxSrc, (uint16_t)ctxSize);
+    Cy_Crypto_Core_Sha_Init(((cy_cmgr_crypto_hw_t *)ctxSrc)->base, hashStateDst, (cy_en_crypto_sha_mode_t)hashStateDst->mode, shaBuffersDst);
+}
+
+void cy_hw_memset(void *data, uint8_t val, uint32_t dataSize)
+{
+    cy_cmgr_crypto_hw_t obj = CY_CMGR_CRYPTO_OBJ_INIT;
+    CY_CRYPTO_CHECK_PARAM( data != NULL );
+    CY_CRYPTO_CHECK_PARAM( dataSize > 0u );
+
+    if (cy_hw_crypto_reserve(&obj, CY_CMGR_CRYPTO_COMMON))
+    {
+        Cy_Crypto_Core_MemSet(obj.base, data, val, (uint16_t)dataSize);
+        cy_hw_crypto_release(&obj);
+    }
+}
+
+void cy_hw_memcpy(void *dstAddr, void const *srcAddr, uint32_t dataSize)
+{
+    cy_cmgr_crypto_hw_t obj = CY_CMGR_CRYPTO_OBJ_INIT;
+    CY_CRYPTO_CHECK_PARAM( dstAddr != NULL );
+    CY_CRYPTO_CHECK_PARAM( srcAddr != NULL );
+    CY_CRYPTO_CHECK_PARAM( dataSize > 0u );
+
+    if (cy_hw_crypto_reserve(&obj, CY_CMGR_CRYPTO_COMMON))
+    {
+        Cy_Crypto_Core_MemCpy(obj.base, dstAddr, srcAddr, (uint16_t)dataSize);
+        cy_hw_crypto_release(&obj);
+    }
 }

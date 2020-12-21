@@ -18,25 +18,23 @@
  */
 
 /**
- * \file     sha512_alt.c
- * \version  1.2
+ * \file    sha512_alt.c
+ * \version 1.3
  *
- * \brief    Source file - wrapper for mbedtls SHA512 HW acceleration
+ * \brief   Source file - wrapper for mbedtls SHA512 HW acceleration
  *
  */
 
-#if defined(MBEDTLS_CONFIG_FILE)
-#include MBEDTLS_CONFIG_FILE
+#if !defined(MBEDTLS_CONFIG_FILE)
+#include "mbedtls/config.h"
 #else
-#include "config.h"
+#include MBEDTLS_CONFIG_FILE
 #endif
 
 #if defined(MBEDTLS_SHA512_C)
 
 #include "mbedtls/sha512.h"
 #include "mbedtls/platform_util.h"
-
-#include <string.h>
 
 #if defined(MBEDTLS_SHA512_ALT)
 

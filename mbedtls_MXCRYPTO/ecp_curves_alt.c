@@ -20,15 +20,15 @@
  */
 
 /*
- * \file     ecp_curves_alt.c
- * \version  1.2
+ * \file    ecp_curves_alt.c
+ * \version 1.3
  *
  */
 
-#if defined(MBEDTLS_CONFIG_FILE)
-#include MBEDTLS_CONFIG_FILE
+#if !defined(MBEDTLS_CONFIG_FILE)
+#include "mbedtls/config.h"
 #else
-#include "config.h"
+#include MBEDTLS_CONFIG_FILE
 #endif
 
 #if defined(MBEDTLS_ECP_C)
@@ -36,9 +36,9 @@
 #include "mbedtls/ecp.h"
 #include "mbedtls/platform_util.h"
 
-#include <string.h>
-
 #if defined(MBEDTLS_ECP_ALT)
+
+#include "crypto_common.h"
 
 /* Parameter validation macros based on platform_util.h */
 #define ECP_VALIDATE_RET( cond )    \
@@ -1007,7 +1007,7 @@ static inline void sub32( uint32_t *dst, uint32_t src, signed char *carry )
     C.s = 1;                                                            \
     C.n = (b) / 8 / sizeof( mbedtls_mpi_uint) + 1;                      \
     C.p = Cp;                                                           \
-    memset( Cp, 0, C.n * sizeof( mbedtls_mpi_uint ) );                  \
+    mbedtls_memset( Cp, 0, C.n * sizeof( mbedtls_mpi_uint ) );                  \
                                                                         \
     MBEDTLS_MPI_CHK( mbedtls_mpi_grow( N, (b) * 2 / 8 /                 \
                                        sizeof( mbedtls_mpi_uint ) ) );  \
@@ -1208,7 +1208,7 @@ static int ecp_mod_p521( mbedtls_mpi *N )
     if( M.n > P521_WIDTH + 1 )
         M.n = P521_WIDTH + 1;
     M.p = Mp;
-    memcpy( Mp, N->p + P521_WIDTH - 1, M.n * sizeof( mbedtls_mpi_uint ) );
+    mbedtls_memcpy( Mp, N->p + P521_WIDTH - 1, M.n * sizeof( mbedtls_mpi_uint ) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &M, 521 % ( 8 * sizeof( mbedtls_mpi_uint ) ) ) );
 
     /* N = A0 */
@@ -1254,8 +1254,8 @@ static int ecp_mod_p255( mbedtls_mpi *N )
     if( M.n > P255_WIDTH + 1 )
         return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA );
     M.p = Mp;
-    memset( Mp, 0, sizeof Mp );
-    memcpy( Mp, N->p + P255_WIDTH - 1, M.n * sizeof( mbedtls_mpi_uint ) );
+    mbedtls_memset( Mp, 0, sizeof Mp );
+    mbedtls_memcpy( Mp, N->p + P255_WIDTH - 1, M.n * sizeof( mbedtls_mpi_uint ) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &M, 255 % ( 8 * sizeof( mbedtls_mpi_uint ) ) ) );
     M.n++; /* Make room for multiplication by 19 */
 
@@ -1312,8 +1312,8 @@ static int ecp_mod_p448( mbedtls_mpi *N )
         /* Shouldn't be called with N larger than 2^896! */
         return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA );
     M.p = Mp;
-    memset( Mp, 0, sizeof( Mp ) );
-    memcpy( Mp, N->p + P448_WIDTH, M.n * sizeof( mbedtls_mpi_uint ) );
+    mbedtls_memset( Mp, 0, sizeof( Mp ) );
+    mbedtls_memcpy( Mp, N->p + P448_WIDTH, M.n * sizeof( mbedtls_mpi_uint ) );
 
     /* N = A0 */
     for( i = P448_WIDTH; i < N->n; i++ )
@@ -1325,7 +1325,7 @@ static int ecp_mod_p448( mbedtls_mpi *N )
     /* Q = B1, N += B1 */
     Q = M;
     Q.p = Qp;
-    memcpy( Qp, Mp, sizeof( Qp ) );
+    mbedtls_memcpy( Qp, Mp, sizeof( Qp ) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &Q, 224 ) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_add_mpi( N, N, &Q ) );
 
@@ -1380,8 +1380,8 @@ static inline int ecp_mod_koblitz( mbedtls_mpi *N, mbedtls_mpi_uint *Rp, size_t 
     M.n = N->n - ( p_limbs - adjust );
     if( M.n > p_limbs + adjust )
         M.n = p_limbs + adjust;
-    memset( Mp, 0, sizeof Mp );
-    memcpy( Mp, N->p + p_limbs - adjust, M.n * sizeof( mbedtls_mpi_uint ) );
+    mbedtls_memset( Mp, 0, sizeof Mp );
+    mbedtls_memcpy( Mp, N->p + p_limbs - adjust, M.n * sizeof( mbedtls_mpi_uint ) );
     if( shift != 0 )
         MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &M, shift ) );
     M.n += R.n; /* Make room for multiplication by R */
@@ -1402,8 +1402,8 @@ static inline int ecp_mod_koblitz( mbedtls_mpi *N, mbedtls_mpi_uint *Rp, size_t 
     M.n = N->n - ( p_limbs - adjust );
     if( M.n > p_limbs + adjust )
         M.n = p_limbs + adjust;
-    memset( Mp, 0, sizeof Mp );
-    memcpy( Mp, N->p + p_limbs - adjust, M.n * sizeof( mbedtls_mpi_uint ) );
+    mbedtls_memset( Mp, 0, sizeof Mp );
+    mbedtls_memcpy( Mp, N->p + p_limbs - adjust, M.n * sizeof( mbedtls_mpi_uint ) );
     if( shift != 0 )
         MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &M, shift ) );
     M.n += R.n; /* Make room for multiplication by R */

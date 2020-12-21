@@ -19,15 +19,15 @@
  */
 
 /*
- * \file aes_alt.h
- * \version 1.2
+ * \file    aes_alt.h
+ * \version 1.3
  *
- * \brief This file contains AES functions implementation.
+ * \brief   This file contains AES functions implementation.
  *
- *  The AES block cipher was designed by Vincent Rijmen and Joan Daemen.
+ *          The AES block cipher was designed by Vincent Rijmen and Joan Daemen.
  *
- *  http://csrc.nist.gov/encryption/aes/rijndael/Rijndael.pdf
- *  http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
+ *          http://csrc.nist.gov/encryption/aes/rijndael/Rijndael.pdf
+ *          http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
  */
 
 #if !defined(MBEDTLS_CONFIG_FILE)
@@ -61,7 +61,7 @@ void mbedtls_aes_init( mbedtls_aes_context *ctx )
 
     cy_hw_zeroize(ctx, sizeof( mbedtls_aes_context ) );
 
-    (void)cy_hw_crypto_reserve((cy_hw_crypto_t *)ctx, CY_CMGR_CRYPTO_COMMON);
+    (void)cy_hw_crypto_reserve((cy_cmgr_crypto_hw_t *)ctx, CY_CMGR_CRYPTO_COMMON);
 }
 
 void mbedtls_aes_free( mbedtls_aes_context *ctx )
@@ -72,7 +72,7 @@ void mbedtls_aes_free( mbedtls_aes_context *ctx )
     if (ctx->aes_state.buffers != NULL) {
         Cy_Crypto_Core_Aes_Free(ctx->obj.base, &ctx->aes_state);
     }
-    cy_hw_crypto_release((cy_hw_crypto_t *)ctx);
+    cy_hw_crypto_release((cy_cmgr_crypto_hw_t *)ctx);
 
     cy_hw_zeroize(ctx, sizeof( mbedtls_aes_context ) );
 }

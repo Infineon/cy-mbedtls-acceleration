@@ -18,28 +18,22 @@
  */
 
 /**
- * \file     sha512_alt.h
- * \version  1.2
+ * \file    sha512_alt.h
+ * \version 1.3
  *
- * \brief    header file - wrapper for mbedtls SHA512 HW acceleration
+ * \brief   header file - wrapper for mbedtls SHA512 HW acceleration
  *
  */
 
 #if !defined(SHA512_ALT_H)
 #define SHA512_ALT_H
 
-#if defined(MBEDTLS_CONFIG_FILE)
-#include MBEDTLS_CONFIG_FILE
-#else
-#include "config.h"
-#endif
-
 #include "crypto_common.h"
 
 #if defined(MBEDTLS_SHA512_ALT)
 
 typedef struct mbedtls_sha512_context {
-    cy_hw_crypto_t obj;
+    cy_cmgr_crypto_hw_t obj;
     cy_stc_crypto_sha_state_t hashState;           /* Structure used by CY Crypto Driver   */
     #if (CY_IP_MXCRYPTO_VERSION == 1u)
     cy_stc_crypto_v1_sha512_buffers_t shaBuffers;  /* Structure used by CY Crypto Driver   */

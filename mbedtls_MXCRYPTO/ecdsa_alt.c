@@ -18,17 +18,17 @@
  */
 
 /*
- * \file     ecdsa_alt.c
- * \version  1.2
+ * \file    ecdsa_alt.c
+ * \version 1.3
  *
- * \brief This file provides an API for Elliptic Curves sign and verifications.
+ * \brief   This file provides an API for Elliptic Curves sign and verifications.
  *
  */
 
-#if defined(MBEDTLS_CONFIG_FILE)
-#include MBEDTLS_CONFIG_FILE
+#if !defined(MBEDTLS_CONFIG_FILE)
+#include "mbedtls/config.h"
 #else
-#include "config.h"
+#include MBEDTLS_CONFIG_FILE
 #endif
 
 #if defined(MBEDTLS_ECDSA_C)
@@ -36,15 +36,13 @@
 #include "mbedtls/ecdsa.h"
 #include "mbedtls/asn1write.h"
 #include "mbedtls/platform_util.h"
+#include "mbedtls/error.h"
 
 #if defined(MBEDTLS_ECDSA_SIGN_ALT)
 
 #include "cy_crypto_core_ecc.h"
 #include "cy_crypto_core_vu.h"
 #include "crypto_common.h"
-
-#include <string.h>
-#include <stdlib.h>
 
 /* Parameter validation macros based on platform_util.h */
 #define ECDSA_VALIDATE_RET( cond )    \
@@ -87,7 +85,7 @@ int mbedtls_ecdsa_sign( mbedtls_ecp_group *grp, mbedtls_mpi *r, mbedtls_mpi *s,
     size_t bytesize;
     uint8_t *sig = NULL;
     uint8_t *tmp_k = NULL;
-    cy_hw_crypto_t crypto_obj;
+    cy_cmgr_crypto_hw_t crypto_obj = CY_CMGR_CRYPTO_OBJ_INIT;
     cy_stc_crypto_ecc_key key;
     cy_stc_crypto_ecc_dp_type *dp;
     cy_en_crypto_status_t ecdsa_status;
@@ -117,16 +115,16 @@ int mbedtls_ecdsa_sign( mbedtls_ecp_group *grp, mbedtls_mpi *r, mbedtls_mpi *s,
 
     bytesize = CY_CRYPTO_BYTE_SIZE_OF_BITS(dp->size);
 
-    key.k = malloc(bytesize);
+    key.k = mbedtls_malloc(bytesize);
     MBEDTLS_MPI_CHK((key.k == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary( d, key.k, bytesize ) );
     Cy_Crypto_Core_InvertEndianness(key.k, bytesize);
 
-    sig = malloc(2 * bytesize);
+    sig = mbedtls_malloc(2 * bytesize);
     MBEDTLS_MPI_CHK((sig == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
 
-    tmp_k = malloc(bytesize);
+    tmp_k = mbedtls_malloc(bytesize);
     MBEDTLS_MPI_CHK((tmp_k == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
 
     ecdsa_status = Cy_Crypto_Core_ECC_MakePrivateKey(crypto_obj.base, key.curveID, tmp_k, f_rng, p_rng);
@@ -149,17 +147,17 @@ cleanup:
     if (key.k != NULL)
     {
         mbedtls_platform_zeroize(key.k, bytesize);
-        free(key.k);
+        mbedtls_free(key.k);
     }
     if (sig != NULL)
     {
         mbedtls_platform_zeroize(sig, 2 * bytesize);
-        free(sig);
+        mbedtls_free(sig);
     }
     if (tmp_k != NULL)
     {
         mbedtls_platform_zeroize(tmp_k, bytesize);
-        free(tmp_k);
+        mbedtls_free(tmp_k);
     }
 
     return( ret );
@@ -181,7 +179,7 @@ int mbedtls_ecdsa_verify( mbedtls_ecp_group *grp,
     size_t olen;
     uint8_t *sig = NULL;
     uint8_t *point_arr = NULL;
-    cy_hw_crypto_t crypto_obj;
+    cy_cmgr_crypto_hw_t crypto_obj = CY_CMGR_CRYPTO_OBJ_INIT;
     cy_stc_crypto_ecc_key key;
     cy_stc_crypto_ecc_dp_type *dp;
     cy_en_crypto_status_t ecdsa_ver_status;
@@ -206,12 +204,12 @@ int mbedtls_ecdsa_verify( mbedtls_ecp_group *grp,
 
     bytesize   = CY_CRYPTO_BYTE_SIZE_OF_BITS(dp->size);
 
-    point_arr = malloc(2 * bytesize + 1u);
+    point_arr = mbedtls_malloc(2 * bytesize + 1u);
     MBEDTLS_MPI_CHK((point_arr == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
     key.pubkey.x  = point_arr + 1u;
     key.pubkey.y  = point_arr + bytesize + 1u;
 
-    sig = malloc(2 * bytesize);
+    sig = mbedtls_malloc(2 * bytesize);
     MBEDTLS_MPI_CHK((sig == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary( r, sig, bytesize ) );
@@ -237,12 +235,12 @@ cleanup:
     if (point_arr != NULL)
     {
         mbedtls_platform_zeroize(point_arr, 2 * bytesize + 1u);
-        free(point_arr);
+        mbedtls_free(point_arr);
     }
     if (sig != NULL)
     {
         mbedtls_platform_zeroize(sig, 2 * bytesize);
-        free(sig);
+        mbedtls_free(sig);
     }
 
     return( ret );

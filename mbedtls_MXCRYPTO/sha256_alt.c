@@ -18,25 +18,23 @@
  */
 
 /**
- * \file     sha256_alt.c
- * \version  1.2
+ * \file    sha256_alt.c
+ * \version 1.3
  *
- * \brief    Source file - wrapper for mbedtls SHA256 HW acceleration
+ * \brief   Source file - wrapper for mbedtls SHA256 HW acceleration
  *
  */
 
-#if defined(MBEDTLS_CONFIG_FILE)
-#include MBEDTLS_CONFIG_FILE
+#if !defined(MBEDTLS_CONFIG_FILE)
+#include "mbedtls/config.h"
 #else
-#include "config.h"
+#include MBEDTLS_CONFIG_FILE
 #endif
 
 #if defined(MBEDTLS_SHA256_C)
 
 #include "mbedtls/sha256.h"
 #include "mbedtls/platform_util.h"
-
-#include <string.h>
 
 #if defined(MBEDTLS_SHA256_ALT)
 

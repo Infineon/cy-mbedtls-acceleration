@@ -18,29 +18,22 @@
  */
 
 /**
- * \file     sha256_alt.h
- * \version  1.2
+ * \file    sha256_alt.h
+ * \version 1.3
  *
- * \brief    header file - wrapper for mbedtls SHA256 HW acceleration
+ * \brief   header file - wrapper for mbedtls SHA256 HW acceleration
  *
  */
 
-
 #if !defined(SHA256_ALT_H)
 #define SHA256_ALT_H
-
-#if defined(MBEDTLS_CONFIG_FILE)
-#include MBEDTLS_CONFIG_FILE
-#else
-#include "config.h"
-#endif
 
 #include "crypto_common.h"
 
 #if defined(MBEDTLS_SHA256_ALT)
 
 typedef struct mbedtls_sha256_context {
-    cy_hw_crypto_t obj;
+    cy_cmgr_crypto_hw_t obj;
     cy_stc_crypto_sha_state_t hashState;           /* Structure used by CY Crypto Driver   */
     #if (CY_IP_MXCRYPTO_VERSION == 1u)
     cy_stc_crypto_v1_sha256_buffers_t shaBuffers;  /* Structure used by CY Crypto Driver   */

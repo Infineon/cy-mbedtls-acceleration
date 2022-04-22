@@ -1,7 +1,8 @@
 /*
  *  ECDSA sign, verify and key generation functions
  *
- *  Copyright (C) 2019-2020 Cypress Semiconductor Corporation
+ *  Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
+ *  an affiliate of Cypress Semiconductor Corporation.
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -18,12 +19,16 @@
  */
 
 /*
- * \file    ecdsa_alt.c
- * \version 1.3
+ * \file    ecdsa_alt_mxcrypto.c
+ * \version 1.4
  *
  * \brief   This file provides an API for Elliptic Curves sign and verifications.
  *
  */
+
+#include "cy_device.h"
+
+#if defined (CY_IP_MXCRYPTO)
 
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "mbedtls/config.h"
@@ -173,7 +178,7 @@ int mbedtls_ecdsa_verify( mbedtls_ecp_group *grp,
                   const unsigned char *buf, size_t blen,
                   const mbedtls_ecp_point *Q, const mbedtls_mpi *r, const mbedtls_mpi *s)
 {
-    int ret;
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     uint8_t stat;
     size_t bytesize;
     size_t olen;
@@ -248,3 +253,5 @@ cleanup:
 #endif /* MBEDTLS_ECDSA_VERIFY_ALT */
 
 #endif /* MBEDTLS_ECDSA_C */
+
+#endif /* CY_IP_MXCRYPTO */

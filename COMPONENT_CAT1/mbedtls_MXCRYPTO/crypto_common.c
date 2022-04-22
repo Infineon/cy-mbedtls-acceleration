@@ -1,6 +1,7 @@
 /*
  * mbed Microcontroller Library
- * Copyright (c) 2019-2020 Cypress Semiconductor Corporation
+ * Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
+ * an affiliate of Cypress Semiconductor Corporation.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,11 +19,15 @@
 
 /**
  * \file    crypto_common.c
- * \version 1.3
+ * \version 1.4
  *
  * \brief   Source file for common mbedtls acceleration functions
  *
  */
+
+#include "cy_device.h"
+
+#if defined (CY_IP_MXCRYPTO)
 
 #include "crypto_common.h"
 #include "cy_crypto_common.h"
@@ -272,7 +277,10 @@ void cy_hw_sha_clone( void *ctxDst, const void *ctxSrc, uint32_t ctxSize,
     CY_CRYPTO_CHECK_PARAM( hashStateDst != NULL );
     CY_CRYPTO_CHECK_PARAM( shaBuffersDst != NULL );
 
-    (void)cy_hw_crypto_reserve((cy_cmgr_crypto_hw_t *)ctxDst, CY_CMGR_CRYPTO_COMMON);
+    if ((((cy_cmgr_crypto_hw_t *)ctxDst)->base) != (((cy_cmgr_crypto_hw_t *)ctxSrc)->base))
+    {
+        (void)cy_hw_crypto_reserve((cy_cmgr_crypto_hw_t *)ctxDst, CY_CMGR_CRYPTO_COMMON);
+    }
 
     Cy_Crypto_Core_MemCpy(((cy_cmgr_crypto_hw_t *)ctxSrc)->base, ctxDst, ctxSrc, (uint16_t)ctxSize);
     Cy_Crypto_Core_Sha_Init(((cy_cmgr_crypto_hw_t *)ctxSrc)->base, hashStateDst, (cy_en_crypto_sha_mode_t)hashStateDst->mode, shaBuffersDst);
@@ -304,3 +312,5 @@ void cy_hw_memcpy(void *dstAddr, void const *srcAddr, uint32_t dataSize)
         cy_hw_crypto_release(&obj);
     }
 }
+
+#endif /* CY_IP_MXCRYPTO */

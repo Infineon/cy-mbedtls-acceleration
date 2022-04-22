@@ -1,7 +1,8 @@
 /*
  *  mbed Microcontroller Library
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (C) 2019-2020 Cypress Semiconductor Corporation
+ *  Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
+ *  an affiliate of Cypress Semiconductor Corporation.
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -18,13 +19,16 @@
  */
 
 /**
- * \file    sha1_alt.c
- * \version 1.3
+ * \file    sha1_alt_mxcrypto.c
+ * \version 1.4
  *
  * \brief   Source file - wrapper for mbedtls SHA1 HW acceleration
  *
  */
 
+#include "cy_device.h"
+
+#if defined (CY_IP_MXCRYPTO)
 
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "mbedtls/config.h"
@@ -115,3 +119,5 @@ int mbedtls_internal_sha1_process( mbedtls_sha1_context *ctx, const unsigned cha
 #endif /* MBEDTLS_SHA1_ALT */
 
 #endif /* MBEDTLS_SHA1_C */
+
+#endif /* CY_IP_MXCRYPTO */

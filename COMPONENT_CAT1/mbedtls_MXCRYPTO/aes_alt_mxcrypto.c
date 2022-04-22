@@ -2,7 +2,8 @@
  *  Source file for mbedtls AES HW acceleration functions
  *
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (C) 2019-2020 Cypress Semiconductor Corporation
+ *  Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
+ *  an affiliate of Cypress Semiconductor Corporation.
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -19,8 +20,8 @@
  */
 
 /*
- * \file    aes_alt.h
- * \version 1.3
+ * \file    aes_alt_mxcrypto.c
+ * \version 1.4
  *
  * \brief   This file contains AES functions implementation.
  *
@@ -29,6 +30,10 @@
  *          http://csrc.nist.gov/encryption/aes/rijndael/Rijndael.pdf
  *          http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
  */
+
+#include "cy_device.h"
+
+#if defined (CY_IP_MXCRYPTO)
 
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "mbedtls/config.h"
@@ -43,6 +48,7 @@
 #include "mbedtls/aes.h"
 #include "mbedtls/platform.h"
 #include "mbedtls/platform_util.h"
+#include "mbedtls/error.h"
 
 #if defined(MBEDTLS_AES_ALT)
 
@@ -183,7 +189,7 @@ int mbedtls_aes_xts_setkey_enc( mbedtls_aes_xts_context *ctx,
                                 const unsigned char *key,
                                 unsigned int keybits)
 {
-    int ret;
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     const unsigned char *key1, *key2;
     unsigned int key1bits, key2bits;
 
@@ -208,7 +214,7 @@ int mbedtls_aes_xts_setkey_dec( mbedtls_aes_xts_context *ctx,
                                 const unsigned char *key,
                                 unsigned int keybits)
 {
-    int ret;
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     const unsigned char *key1, *key2;
     unsigned int key1bits, key2bits;
 
@@ -453,7 +459,7 @@ int mbedtls_aes_crypt_xts( mbedtls_aes_xts_context *ctx,
                            const unsigned char *input,
                            unsigned char *output )
 {
-    int ret;
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     size_t blocks = length / 16;
     size_t leftover = length % 16;
     unsigned char tweak[16];
@@ -743,3 +749,5 @@ int mbedtls_aes_crypt_ctr( mbedtls_aes_context *ctx,
 #endif /* MBEDTLS_AES_ALT */
 
 #endif /* MBEDTLS_AES_C */
+
+#endif /* CY_IP_MXCRYPTO */

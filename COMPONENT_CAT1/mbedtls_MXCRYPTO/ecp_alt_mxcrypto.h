@@ -1,7 +1,8 @@
 /*
  *  mbed Microcontroller Library
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (C) 2019-2020 Cypress Semiconductor Corporation
+ *  Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
+ *  an affiliate of Cypress Semiconductor Corporation.
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -18,8 +19,8 @@
  */
 
 /**
- * \file    ecp.h
- * \version 1.3
+ * \file    ecp_alt_mxcrypto.h
+ * \version 1.4
  *
  * \brief   This file provides an API for Elliptic Curves over GF(P) (ECP).
  *
@@ -33,6 +34,10 @@
  *          group types.
  *
  */
+
+#include "cy_device.h"
+
+#if defined (CY_IP_MXCRYPTO)
 
 #ifndef ECP_ALT_H
 #define ECP_ALT_H
@@ -179,3 +184,5 @@ cy_en_crypto_ecc_curve_id_t cy_get_dp_idx(mbedtls_ecp_group_id gid);
 #endif
 
 #endif /* ecp_alt.h */
+
+#endif /* CY_IP_MXCRYPTO */

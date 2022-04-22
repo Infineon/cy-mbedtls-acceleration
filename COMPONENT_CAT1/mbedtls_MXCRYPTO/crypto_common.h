@@ -1,6 +1,8 @@
+
 /*
  * mbed Microcontroller Library
- * Copyright (c) 2019-2020 Cypress Semiconductor Corporation
+ * Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
+ * an affiliate of Cypress Semiconductor Corporation.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,11 +20,15 @@
 
 /**
  * \file    crypto_common.h
- * \version 1.3
+ * \version 1.4
  *
  * \brief   Header file for common mbedtls acceleration functions
  *
  */
+
+#include "cy_device.h"
+
+#if defined (CY_IP_MXCRYPTO)
 
 #if !defined(CRYPTO_COMMON_H)
 #define CRYPTO_COMMON_H
@@ -40,12 +46,18 @@
 #include <string.h>
 #define  mbedtls_calloc      calloc
 #define  mbedtls_free        free
-#define  mbedtls_memcpy      memcpy
-#define  mbedtls_memset      memset
+#define  mbedtls_memcpy      cy_hw_memcpy
+#define  mbedtls_memset      cy_hw_memset
 #endif
 
 #ifndef mbedtls_malloc
 #define mbedtls_malloc(...)  mbedtls_calloc(1, __VA_ARGS__)
+#endif
+#ifndef  mbedtls_memcpy
+#define  mbedtls_memcpy      memcpy
+#endif
+#ifndef  mbedtls_memset
+#define  mbedtls_memset      memset
 #endif
 
 #include "cy_crypto_core.h"
@@ -145,3 +157,5 @@ void cy_hw_memset(void *data, uint8_t val, uint32_t dataSize);
 void cy_hw_memcpy(void *dstAddr, void const *srcAddr, uint32_t dataSize);
 
 #endif /* (CRYPTO_COMMON_H) */
+
+#endif /* CY_IP_MXCRYPTO */

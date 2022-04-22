@@ -1,6 +1,7 @@
 /*
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (C) 2019-2020 Cypress Semiconductor Corporation
+ *  Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
+ *  an affiliate of Cypress Semiconductor Corporation.
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -17,8 +18,8 @@
  */
 
 /**
- * \file    aes_alt.h
- * \version 1.3
+ * \file    aes_alt_mxcrypto.h
+ * \version 1.4
  *
  * \brief   This file contains AES definitions and functions.
  *
@@ -38,6 +39,10 @@
  *          and described in detail by IEEE P1619
  *          <https://ieeexplore.ieee.org/servlet/opac?punumber=4375278>.
  */
+
+#include "cy_device.h"
+
+#if defined (CY_IP_MXCRYPTO)
 
 #ifndef AES_ALT_H
 #define AES_ALT_H
@@ -82,3 +87,5 @@ typedef struct mbedtls_aes_xts_context
 #endif /* MBEDTLS_AES_ALT */
 
 #endif /* aes_alt.h */
+
+#endif /* CY_IP_MXCRYPTO */

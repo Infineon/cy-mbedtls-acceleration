@@ -31,9 +31,9 @@ This version of the CAT1A, CAT1B & CAT1C acceleration for mbedTLS library was va
 | ModusToolbox Software Environment                       | 3.0       |
 | mtb-pdl-cat1  Peripheral Driver Library (PDL)           | 3.0       |
 | mtb-hal-cat1 Hardware Abstraction Layer(HAL)            | 2.2       |
-| GCC Compiler                                            | 10.2.1.72 |
-| IAR Compiler                                            | 8.4       |
-| ARM Compiler 6                                          | 6.13      |
+| GCC Compiler                                            | 10.3.1 |
+| IAR Compiler                                            | 9.3       |
+| ARM Compiler 6                                          | 6.16      |
 
 ### Dependencies to mbedTLS versions
 | cy-mbedtls-acceleration version                         | mbedTLS version |

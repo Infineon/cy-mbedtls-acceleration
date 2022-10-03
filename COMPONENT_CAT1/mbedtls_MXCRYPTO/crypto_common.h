@@ -51,12 +51,15 @@
 #endif
 
 #ifndef mbedtls_malloc
+#include <stdlib.h>
 #define mbedtls_malloc(...)  mbedtls_calloc(1, __VA_ARGS__)
 #endif
 #ifndef  mbedtls_memcpy
+#include <string.h>
 #define  mbedtls_memcpy      memcpy
 #endif
 #ifndef  mbedtls_memset
+#include <string.h>
 #define  mbedtls_memset      memset
 #endif
 

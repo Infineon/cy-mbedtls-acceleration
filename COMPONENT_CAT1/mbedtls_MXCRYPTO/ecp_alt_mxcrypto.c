@@ -202,7 +202,7 @@ static inline int ecp_drbg_random( void *p_rng,
 static int ecp_ctr_drbg_null_entropy(void *ctx, unsigned char *out, size_t len)
 {
     (void) ctx;
-    memset( out, 0, len );
+    mbedtls_memset( out, 0, len );
     return( 0 );
 }
 

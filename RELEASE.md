@@ -1,14 +1,13 @@
-# mbedTLS Crypto acceleration for CAT1A MCUs
+# mbedTLS Crypto acceleration for CAT1A,CAT1B and CAT1C  MCUs
 
 ### What's Included?
-Please refer to the [README.md](./README.md) for a complete description of the CAT1A acceleration for mbedTLS library.
+Please refer to the [README.md](./README.md) for a complete description of the CAT1A, CAT1B and CAT1C acceleration for mbedTLS library.
 New in this release:
 
-* Support for new MTB projects flow
-* Small documentation cleanup
+* Support for CAT1B and CAT1C MCUs
 
 ### Limitations
-Currently Cypress CAT1A acceleration doesn't support:
+Currently Cypress CAT1A and CAT1C acceleration doesn't support:
 
 - RSA
 - ECP NIST-B curves
@@ -20,14 +19,20 @@ Currently Cypress CAT1A acceleration doesn't support:
 - AES GCM
 - POLY1305
 
+Currently Cypress CAT1B acceleration doesn't support:
+
+- RSA
+- ECC curves, ECDSA, ECDH
+- AES
+  
 ### Supported Software and Tools
-This version of the CAT1A acceleration for mbedTLS library was validated for compatibility with the following Software and Tools:
+This version of the CAT1A,CAT1B and CAT1C acceleration for mbedTLS library was validated for compatibility with the following Software and Tools:
 
 | Software and Tools                                      | Version   |
 | :---                                                    | :-------: |
-| ModusToolbox Software Environment                       | 2.4       |
-| mtb-pdl-cat1 Peripheral Driver Library (PDL)            | 2.4       |
-| mtb-hal-cat1 Hardware Abstraction Layer (HAL)           | 2.1       |
+| ModusToolbox Software Environment                       | 3.0       |
+| mtb-pdl-cat1 Peripheral Driver Library (PDL)            | 3.0       |
+| mtb-hal-cat1 Hardware Abstraction Layer (HAL)           | 2.2       |
 | GCC Compiler                                            | 10.3.1    |
 | IAR Compiler                                            | 8.2       |
 | ARM Compiler 6                                          | 6.12      |
@@ -35,6 +40,7 @@ This version of the CAT1A acceleration for mbedTLS library was validated for com
 ### Dependencies to mbedTLS versions
 | cy-mbedtls-acceleration version                         | mbedTLS version |
 | :---:                                                   | :----:  |
+| 1.4.1												      | 2.26    |
 | 1.4												      | 2.26    |
 | 1.3    											      | 2.24    |
 | 1.2 	   											      | 2.19.1  |
@@ -45,6 +51,7 @@ This version of the CAT1A acceleration for mbedTLS library was validated for com
 
 | Version |	Changes                                                                                                | Reason for Change |
 | :----:  |	:---                                                                                                   | :----             |
+| 1.4.1     |	Support for CAT1B and CAT1C MCUs                                                                       | New Cypress MCUs support |
 | 1.4     |	Support for new MTB projects flow, small documentation cleanup                                         | ModusToolbox 2.4 support |
 | 1.3     |	Added ECDH acceleration, small code and documentation cleanup                                          | ModusToolbox 2.X support |
 | 1.2     |	New internal resource management instead of using psoc6hal                                             | Simple projects support without psoc6hal |

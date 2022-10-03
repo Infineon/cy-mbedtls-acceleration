@@ -3,7 +3,7 @@
 #include "cy_device.h"
 #include "cy_syslib.h"
 
-#if CY_CPU_CORTEX_M0P || (CY_CPU_CORTEX_M4 && !defined(CY_DEVICE_SECURE))
+#if CY_CPU_CORTEX_M0P || ((CY_CPU_CORTEX_M7 || CY_CPU_CORTEX_M4 || CY_CPU_CORTEX_M33) && !defined(CY_DEVICE_SECURE))
 #if defined (CY_IP_MXCRYPTO)
 #if (CPUSS_CRYPTO_AES == 1)
     #define MBEDTLS_AES_ALT
@@ -21,6 +21,10 @@
     #define MBEDTLS_ECDSA_VERIFY_ALT
     #define MBEDTLS_ECDH_GEN_PUBLIC_ALT
 #endif /* CPUSS_CRYPTO_VU */
-#endif /* CY_IP_MXCRYPTO */
-#endif /* CY_CPU_CORTEX_M0P || (CY_CPU_CORTEX_M4 && !defined(CY_DEVICE_SECURE)) */
+#elif defined (CY_IP_MXCRYPTOLITE)
+#if (CRYPTOLITE_SHA_PRESENT == 1)
+    #define MBEDTLS_SHA256_ALT
+#endif /* CRYPTO_SHA_PRESENT */
+#endif /*  CY_IP_MXCRYPTO, CY_IP_MXCRYPTOLITE */
+#endif/* CY_CPU_CORTEX_M0P || ((CY_CPU_CORTEX_M7 || CY_CPU_CORTEX_M4 || CY_CPU_CORTEX_M33) && !defined(CY_DEVICE_SECURE)) */
 #endif /* COMPONENT_CAT1 */

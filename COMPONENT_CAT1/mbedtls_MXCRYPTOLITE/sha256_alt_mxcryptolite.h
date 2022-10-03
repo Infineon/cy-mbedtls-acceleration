@@ -19,19 +19,37 @@
  */
 
 /**
- * \file    sha256_alt.h
- * \version 1.4
+ * \file     sha256_alt_mxcryptolite.h
+ * \version  1.4
  *
- * \brief   header file - wrapper for mbedtls SHA256 HW acceleration
+ * \brief    header file - wrapper for mbedtls SHA256 HW acceleration
  *
  */
 
 #include "cy_device.h"
 
-#if defined (CY_IP_MXCRYPTO)
-    #include "sha256_alt_mxcrypto.h"
-#elif defined (CY_IP_MXCRYPTOLITE)
-    #include "sha256_alt_mxcryptolite.h"
+#if defined (CY_IP_MXCRYPTOLITE)
+
+#if !defined(SHA256_ALT_H)
+#define SHA256_ALT_H
+
+#if defined(MBEDTLS_CONFIG_FILE)
+#include MBEDTLS_CONFIG_FILE
 #else
-    #error mbedTLS ALT for SHA256 is not supported
-#endif /* CY_IP_MXCRYPTO */
+#include "config.h"
+#endif
+
+#include "cy_cryptolite.h"
+
+#if defined(MBEDTLS_SHA256_ALT)
+
+typedef struct mbedtls_sha256_context {
+    cy_stc_cryptolite_context_sha256_t hashState;      /* Structure used by CY Cryptolite Driver   */
+}
+mbedtls_sha256_context;
+
+#endif /* MBEDTLS_SHA256_ALT */
+
+#endif /* (SHA256_ALT_H) */
+
+#endif /* CY_IP_MXCRYPTOLITE */

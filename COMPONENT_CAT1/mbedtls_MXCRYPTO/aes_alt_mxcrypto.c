@@ -498,7 +498,7 @@ int mbedtls_aes_crypt_xts( mbedtls_aes_xts_context *ctx,
              * and this tweak for the lefover bytes. Save the current tweak for
              * the leftovers and then update the current tweak for use on this,
              * the last full block. */
-            memcpy( prev_tweak, tweak, sizeof( tweak ) );
+            mbedtls_memcpy( prev_tweak, tweak, sizeof( tweak ) );
             mbedtls_gf128mul_x_ble( tweak, tweak );
         }
 
@@ -639,7 +639,7 @@ int mbedtls_aes_crypt_cfb8( mbedtls_aes_context *ctx,
 
     while( length-- )
     {
-        memcpy( ov, iv, 16 );
+        mbedtls_memcpy( ov, iv, 16 );
         mbedtls_aes_crypt_ecb( ctx, MBEDTLS_AES_ENCRYPT, iv, iv );
 
         if( mode == MBEDTLS_AES_DECRYPT )
@@ -650,7 +650,7 @@ int mbedtls_aes_crypt_cfb8( mbedtls_aes_context *ctx,
         if( mode == MBEDTLS_AES_ENCRYPT )
             ov[16] = c;
 
-        memcpy( iv, ov + 1, 16 );
+        mbedtls_memcpy( iv, ov + 1, 16 );
     }
 
     return( 0 );

@@ -1,8 +1,7 @@
 /*
  *  mbed Microcontroller Library
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
- *  an affiliate of Cypress Semiconductor Corporation.
+ *  Copyright (C) 2019-2022 Cypress Semiconductor Corporation
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -20,7 +19,7 @@
 
 /**
  * \file    sha256_alt_mxcrypto.c
- * \version 1.4
+ * \version 2.0
  *
  * \brief   Source file - wrapper for mbedtls SHA256 HW acceleration
  *
@@ -30,16 +29,16 @@
 
 #if defined (CY_IP_MXCRYPTO)
 
-#if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
-#else
-#include MBEDTLS_CONFIG_FILE
-#endif
+#include "mbedtls/build_info.h"
 
 #if defined(MBEDTLS_SHA256_C)
 
+/* Allow only *_alt implementations to access private members of structures*/
+#define MBEDTLS_ALLOW_PRIVATE_ACCESS
+
 #include "mbedtls/sha256.h"
 #include "mbedtls/platform_util.h"
+#include "mbedtls/compat-2.x.h"
 
 #if defined(MBEDTLS_SHA256_ALT)
 
@@ -74,10 +73,9 @@ void mbedtls_sha256_clone( mbedtls_sha256_context *dst, const mbedtls_sha256_con
 /*
  * SHA-256 context setup
  */
-int mbedtls_sha256_starts_ret( mbedtls_sha256_context *ctx, int is224)
+int mbedtls_sha256_starts( mbedtls_sha256_context *ctx, int is224)
 {
     SHA256_VALIDATE_RET( ctx != NULL );
-    SHA256_VALIDATE_RET( is224 == 0 || is224 == 1 );
 
     return cy_hw_sha_start(&ctx->obj, &ctx->hashState,
                              ( is224 == 0 ) ? CY_CRYPTO_MODE_SHA256 : CY_CRYPTO_MODE_SHA224,
@@ -87,10 +85,10 @@ int mbedtls_sha256_starts_ret( mbedtls_sha256_context *ctx, int is224)
 /*
  * SHA-256 process buffer
  */
-int mbedtls_sha256_update_ret( mbedtls_sha256_context *ctx, const unsigned char *input, size_t ilen )
+int mbedtls_sha256_update( mbedtls_sha256_context *ctx, const unsigned char *input, size_t ilen )
 {
     SHA256_VALIDATE_RET( ctx != NULL );
-    SHA256_VALIDATE_RET( ilen == 0 || input != NULL );
+    SHA256_VALIDATE_RET( input != NULL );
 
     if (ilen == 0)
         return (0);
@@ -101,7 +99,7 @@ int mbedtls_sha256_update_ret( mbedtls_sha256_context *ctx, const unsigned char 
 /*
  * SHA-256 final digest
  */
-int mbedtls_sha256_finish_ret( mbedtls_sha256_context *ctx, unsigned char output[32] )
+int mbedtls_sha256_finish( mbedtls_sha256_context *ctx, unsigned char *output )
 {
     SHA256_VALIDATE_RET( ctx != NULL );
     SHA256_VALIDATE_RET( (unsigned char *)output != NULL );

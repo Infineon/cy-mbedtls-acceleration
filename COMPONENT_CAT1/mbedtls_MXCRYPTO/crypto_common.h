@@ -1,8 +1,6 @@
-
 /*
  * mbed Microcontroller Library
- * Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
- * an affiliate of Cypress Semiconductor Corporation.
+ * Copyright (c) 2019-2022 Cypress Semiconductor Corporation
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,7 +18,7 @@
 
 /**
  * \file    crypto_common.h
- * \version 1.4
+ * \version 2.0
  *
  * \brief   Header file for common mbedtls acceleration functions
  *
@@ -33,11 +31,7 @@
 #if !defined(CRYPTO_COMMON_H)
 #define CRYPTO_COMMON_H
 
-#if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
-#else
-#include MBEDTLS_CONFIG_FILE
-#endif
+#include "mbedtls/build_info.h"
 
 #if defined(MBEDTLS_PLATFORM_C)
 #include "mbedtls/platform.h"
@@ -89,6 +83,8 @@ typedef cyhal_resource_inst_t  cy_cmgr_resource_inst_t;
 
 #else /* defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE) */
 
+#include "mbedtls/private_access.h"
+
 typedef enum
 {
     /** CRC hardware acceleration */
@@ -116,8 +112,8 @@ typedef enum
   */
 typedef struct
 {
-    cy_cmgr_resource_t type;      //!< The resource block type
-    uint8_t            block_num; //!< The resource block index
+    cy_cmgr_resource_t MBEDTLS_PRIVATE(type);      //!< The resource block type
+    uint8_t            MBEDTLS_PRIVATE(block_num); //!< The resource block index
 } cy_cmgr_resource_inst_t;
 
 #define CY_CMGR_RESOURCE_INIT  {CY_CMGR_RSC_INVALID, 0U}
@@ -126,9 +122,9 @@ typedef struct
 
 /** CRYPTO object */
 typedef struct {
-    CRYPTO_Type*                base;
-    cy_cmgr_resource_inst_t     resource;
-    cy_cmgr_feature_t           feature;
+    CRYPTO_Type*                MBEDTLS_PRIVATE(base);
+    cy_cmgr_resource_inst_t     MBEDTLS_PRIVATE(resource);
+    cy_cmgr_feature_t           MBEDTLS_PRIVATE(feature);
 } cy_cmgr_crypto_hw_t;
 
 #define CY_CMGR_CRYPTO_OBJ_INIT  {NULL, CY_CMGR_RESOURCE_INIT, CY_CMGR_CRYPTO_COMMON}

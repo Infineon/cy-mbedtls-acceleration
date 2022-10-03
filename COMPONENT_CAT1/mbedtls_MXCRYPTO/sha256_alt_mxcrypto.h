@@ -1,8 +1,7 @@
 /*
  *  mbed Microcontroller Library
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
- *  an affiliate of Cypress Semiconductor Corporation.
+ *  Copyright (C) 2019-2022 Cypress Semiconductor Corporation
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -20,7 +19,7 @@
 
 /**
  * \file    sha256_alt_mxcrypto.h
- * \version 1.4
+ * \version 2.0
  *
  * \brief   header file - wrapper for mbedtls SHA256 HW acceleration
  *
@@ -38,12 +37,12 @@
 #if defined(MBEDTLS_SHA256_ALT)
 
 typedef struct mbedtls_sha256_context {
-    cy_cmgr_crypto_hw_t obj;
-    cy_stc_crypto_sha_state_t hashState;           /* Structure used by CY Crypto Driver   */
+    cy_cmgr_crypto_hw_t MBEDTLS_PRIVATE(obj);
+    cy_stc_crypto_sha_state_t MBEDTLS_PRIVATE(hashState);           /* Structure used by CY Crypto Driver   */
     #if (CY_IP_MXCRYPTO_VERSION == 1u)
-    cy_stc_crypto_v1_sha256_buffers_t shaBuffers;  /* Structure used by CY Crypto Driver   */
+    cy_stc_crypto_v1_sha256_buffers_t MBEDTLS_PRIVATE(shaBuffers);  /* Structure used by CY Crypto Driver   */
     #else
-    cy_stc_crypto_v2_sha256_buffers_t shaBuffers;  /* Structure used by CY Crypto Driver   */
+    cy_stc_crypto_v2_sha256_buffers_t MBEDTLS_PRIVATE(shaBuffers);  /* Structure used by CY Crypto Driver   */
     #endif
 }
 mbedtls_sha256_context;

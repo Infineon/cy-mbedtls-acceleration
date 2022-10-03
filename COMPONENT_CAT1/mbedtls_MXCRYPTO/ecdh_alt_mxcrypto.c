@@ -2,8 +2,6 @@
  *  Elliptic curve Diffie-Hellman
  *
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
- *  an affiliate of Cypress Semiconductor Corporation.
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -23,7 +21,7 @@
 
 /*
  * \file    ecdh_alt_mxcrypto.c
- * \version 1.4
+ * \version 2.0
  *
  * \brief   This file provides an API for ECDH algorithm acceleration.
  *
@@ -39,17 +37,17 @@
 
 #if defined (CY_IP_MXCRYPTO)
 
-#if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
-#else
-#include MBEDTLS_CONFIG_FILE
-#endif
+#include "mbedtls/build_info.h"
 
 #if defined(MBEDTLS_ECDH_C)
+
+/* Allow only *_alt implementations to access private members of structures*/
+#define MBEDTLS_ALLOW_PRIVATE_ACCESS
 
 #include "mbedtls/ecdh.h"
 #include "mbedtls/platform_util.h"
 #include "mbedtls/error.h"
+#include "mbedtls/compat-2.x.h"
 
 #include "cy_crypto_core_ecc.h"
 #include "crypto_common.h"
@@ -114,7 +112,6 @@ int mbedtls_ecdh_gen_public( mbedtls_ecp_group *grp, mbedtls_mpi *d, mbedtls_ecp
     cy_hw_crypto_reserve(&crypto_obj, CY_CMGR_CRYPTO_VU);
 
     key.curveID = cy_get_dp_idx(grp->id);
-    ECDH_VALIDATE_RET( key.curveID != CY_CRYPTO_ECC_ECP_NONE);
 
     dp = Cy_Crypto_Core_ECC_GetCurveParams(key.curveID);
     bytesize = CY_CRYPTO_BYTE_SIZE_OF_BITS(dp->size);
@@ -130,7 +127,7 @@ int mbedtls_ecdh_gen_public( mbedtls_ecp_group *grp, mbedtls_mpi *d, mbedtls_ecp
     key.pubkey.y = (uint8_t *)Q->Y.p;
 
     ecdh_status = Cy_Crypto_Core_ECC_MakeKeyPair(crypto_obj.base, key.curveID, &key, f_rng, p_rng);
-    MBEDTLS_MPI_CHK((ecdh_status != CY_CRYPTO_SUCCESS) ? MBEDTLS_ERR_ECP_HW_ACCEL_FAILED : 0);
+    MBEDTLS_MPI_CHK((ecdh_status != CY_CRYPTO_SUCCESS) ? MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED : 0);
 
 cleanup:
     /* Realease the crypto hardware */

@@ -1,7 +1,6 @@
 /*
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
- *  an affiliate of Cypress Semiconductor Corporation.
+ *  Copyright (C) 2019-2022 Cypress Semiconductor Corporation
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -19,7 +18,7 @@
 
 /**
  * \file    aes_alt.h
- * \version 1.4
+ * \version 2.0
  *
  * \brief   This file contains AES definitions and functions.
  *

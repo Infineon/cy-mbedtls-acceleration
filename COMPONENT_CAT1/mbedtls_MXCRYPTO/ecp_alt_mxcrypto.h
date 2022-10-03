@@ -1,8 +1,7 @@
 /*
  *  mbed Microcontroller Library
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
- *  an affiliate of Cypress Semiconductor Corporation.
+ *  Copyright (C) 2019-2022 Cypress Semiconductor Corporation
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -20,7 +19,7 @@
 
 /**
  * \file    ecp_alt_mxcrypto.h
- * \version 1.4
+ * \version 2.0
  *
  * \brief   This file provides an API for Elliptic Curves over GF(P) (ECP).
  *
@@ -43,6 +42,7 @@
 #define ECP_ALT_H
 
 #include "mbedtls/bignum.h"
+#include "mbedtls/compat-2.x.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -91,29 +91,41 @@ extern "C" {
  * additions or subtractions. Therefore, it is only an approximative modular
  * reduction. It must return 0 on success and non-zero on failure.
  *
+ * \note        Alternative implementations of the ECP module must obey the
+ *              following constraints.
+ *              * Group IDs must be distinct: if two group structures have
+ *                the same ID, then they must be identical.
+ *              * The fields \c id, \c P, \c A, \c B, \c G, \c N,
+ *                \c pbits and \c nbits must have the same type and semantics
+ *                as in the built-in implementation.
+ *                They must be available for reading, but direct modification
+ *                of these fields does not need to be supported.
+ *                They do not need to be at the same offset in the structure.
  */
 typedef struct mbedtls_ecp_group
 {
-    mbedtls_ecp_group_id id;    /*!< An internal group identifier. */
-    mbedtls_mpi P;              /*!< The prime modulus of the base field. */
-    mbedtls_mpi A;              /*!< For Short Weierstrass: \p A in the equation. For
+    mbedtls_ecp_group_id MBEDTLS_PRIVATE(id);    /*!< An internal group identifier. */
+    mbedtls_mpi MBEDTLS_PRIVATE(P);              /*!< The prime modulus of the base field. */
+    mbedtls_mpi MBEDTLS_PRIVATE(A);              /*!< For Short Weierstrass: \p A in the equation. For
                                      Montgomery curves: <code>(A + 2) / 4</code>. */
-    mbedtls_mpi B;              /*!< For Short Weierstrass: \p B in the equation.
+    mbedtls_mpi MBEDTLS_PRIVATE(B);              /*!< For Short Weierstrass: \p B in the equation.
                                      For Montgomery curves: unused. */
-    mbedtls_ecp_point G;        /*!< The generator of the subgroup used. */
-    mbedtls_mpi N;              /*!< The order of \p G. */
-    size_t pbits;               /*!< The number of bits in \p P.*/
-    size_t nbits;               /*!< For Short Weierstrass: The number of bits in \p P.
+    mbedtls_ecp_point MBEDTLS_PRIVATE(G);        /*!< The generator of the subgroup used. */
+    mbedtls_mpi MBEDTLS_PRIVATE(N);              /*!< The order of \p G. */
+    size_t MBEDTLS_PRIVATE(pbits);               /*!< The number of bits in \p P.*/
+    size_t MBEDTLS_PRIVATE(nbits);               /*!< For Short Weierstrass: The number of bits in \p P.
                                      For Montgomery curves: the number of bits in the
                                      private keys. */
-    unsigned int h;             /*!< \internal 1 if the constants are static. */
-    int (*modp)(mbedtls_mpi *); /*!< The function for fast pseudo-reduction
+    /* End of public fields */
+
+    unsigned int MBEDTLS_PRIVATE(h);             /*!< \internal 1 if the constants are static. */
+    int (*MBEDTLS_PRIVATE(modp))(mbedtls_mpi *); /*!< The function for fast pseudo-reduction
                                      mod \p P (see above).*/
-    int (*t_pre)(mbedtls_ecp_point *, void *);  /*!< Unused. */
-    int (*t_post)(mbedtls_ecp_point *, void *); /*!< Unused. */
-    void *t_data;               /*!< Unused. */
-    mbedtls_ecp_point *T;       /*!< Pre-computed points for ecp_mul_comb(). */
-    size_t T_size;              /*!< The number of pre-computed points. */
+    int (*MBEDTLS_PRIVATE(t_pre))(mbedtls_ecp_point *, void *);  /*!< Unused. */
+    int (*MBEDTLS_PRIVATE(t_post))(mbedtls_ecp_point *, void *); /*!< Unused. */
+    void *MBEDTLS_PRIVATE(t_data);               /*!< Unused. */
+    mbedtls_ecp_point *MBEDTLS_PRIVATE(T);       /*!< Pre-computed points for ecp_mul_comb(). */
+    size_t MBEDTLS_PRIVATE(T_size);              /*!< The number of dynamic allocated pre-computed points. */
 }
 mbedtls_ecp_group;
 
@@ -121,16 +133,9 @@ mbedtls_ecp_group;
  * \name SECTION: Module settings
  *
  * The configuration options you can set for this module are in this section.
- * Either change them in config.h, or define them using the compiler command line.
+ * Either change them in mbedtls_config.h, or define them using the compiler command line.
  * \{
  */
-
-#if !defined(MBEDTLS_ECP_MAX_BITS)
-/**
- * The maximum size of the groups, that is, of \c N and \c P.
- */
-#define MBEDTLS_ECP_MAX_BITS     521   /**< The maximum size of groups, in bits. */
-#endif
 
 #define MBEDTLS_ECP_MAX_BYTES    ( ( MBEDTLS_ECP_MAX_BITS + 7 ) / 8 )
 #define MBEDTLS_ECP_MAX_PT_LEN   ( 2 * MBEDTLS_ECP_MAX_BYTES + 1 )
@@ -138,7 +143,8 @@ mbedtls_ecp_group;
 #if !defined(MBEDTLS_ECP_WINDOW_SIZE)
 /*
  * Maximum "window" size used for point multiplication.
- * Default: 6.
+ * Default: a point where higher memory usage yields disminishing performance
+ *          returns.
  * Minimum value: 2. Maximum value: 7.
  *
  * Result is an array of at most ( 1 << ( MBEDTLS_ECP_WINDOW_SIZE - 1 ) )
@@ -155,22 +161,23 @@ mbedtls_ecp_group;
  *      224       475     475     453     398     342
  *      192       640     640     633     587     476
  */
-#define MBEDTLS_ECP_WINDOW_SIZE    6   /**< The maximum window size used. */
+#define MBEDTLS_ECP_WINDOW_SIZE    4   /**< The maximum window size used. */
 #endif /* MBEDTLS_ECP_WINDOW_SIZE */
 
 #if !defined(MBEDTLS_ECP_FIXED_POINT_OPTIM)
 /*
- * Trade memory for speed on fixed-point multiplication.
+ * Trade code size for speed on fixed-point multiplication.
  *
  * This speeds up repeated multiplication of the generator (that is, the
  * multiplication in ECDSA signatures, and half of the multiplications in
  * ECDSA verification and ECDHE) by a factor roughly 3 to 4.
  *
- * The cost is increasing EC peak memory usage by a factor roughly 2.
+ * For each n-bit Short Weierstrass curve that is enabled, this adds 4n bytes
+ * of code size if n < 384 and 8n otherwise.
  *
- * Change this value to 0 to reduce peak memory usage.
+ * Change this value to 0 to reduce code size.
  */
-#define MBEDTLS_ECP_FIXED_POINT_OPTIM  1   /**< Enable fixed-point speed-up. */
+#define MBEDTLS_ECP_FIXED_POINT_OPTIM  0   /**< Enable fixed-point speed-up. */
 #endif /* MBEDTLS_ECP_FIXED_POINT_OPTIM */
 
 /* \} name SECTION: Module settings */

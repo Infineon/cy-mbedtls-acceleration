@@ -1,8 +1,7 @@
 /*
  *  mbed Microcontroller Library
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
- *  an affiliate of Cypress Semiconductor Corporation.
+ *  Copyright (C) 2019-2022 Cypress Semiconductor Corporation
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -20,7 +19,7 @@
 
 /**
  * \file    sha1_alt_mxcrypto.c
- * \version 1.4
+ * \version 2.0
  *
  * \brief   Source file - wrapper for mbedtls SHA1 HW acceleration
  *
@@ -30,16 +29,16 @@
 
 #if defined (CY_IP_MXCRYPTO)
 
-#if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
-#else
-#include MBEDTLS_CONFIG_FILE
-#endif
+#include "mbedtls/build_info.h"
 
 #if defined(MBEDTLS_SHA1_C)
 
+/* Allow only *_alt implementations to access private members of structures*/
+#define MBEDTLS_ALLOW_PRIVATE_ACCESS
+
 #include "mbedtls/sha1.h"
 #include "mbedtls/platform_util.h"
+#include "mbedtls/compat-2.x.h"
 
 #if defined(MBEDTLS_SHA1_ALT)
 
@@ -74,7 +73,7 @@ void mbedtls_sha1_clone( mbedtls_sha1_context *dst, const mbedtls_sha1_context *
 /*
  * SHA-1 context setup
  */
-int mbedtls_sha1_starts_ret( mbedtls_sha1_context *ctx )
+int mbedtls_sha1_starts( mbedtls_sha1_context *ctx )
 {
     SHA1_VALIDATE_RET( ctx != NULL );
 
@@ -84,12 +83,12 @@ int mbedtls_sha1_starts_ret( mbedtls_sha1_context *ctx )
 /*
  * SHA-1 process buffer
  */
-int mbedtls_sha1_update_ret( mbedtls_sha1_context *ctx,
+int mbedtls_sha1_update( mbedtls_sha1_context *ctx,
                              const unsigned char *input,
                              size_t ilen )
 {
     SHA1_VALIDATE_RET( ctx != NULL );
-    SHA1_VALIDATE_RET( ilen == 0 || input != NULL );
+    SHA1_VALIDATE_RET( input != NULL );
 
     if (ilen == 0)
         return (0);
@@ -100,7 +99,7 @@ int mbedtls_sha1_update_ret( mbedtls_sha1_context *ctx,
 /*
  * SHA-1 final digest
  */
-int mbedtls_sha1_finish_ret( mbedtls_sha1_context *ctx, unsigned char output[20])
+int mbedtls_sha1_finish( mbedtls_sha1_context *ctx, unsigned char *output)
 {
     SHA1_VALIDATE_RET( ctx != NULL );
     SHA1_VALIDATE_RET( (unsigned char *)output != NULL );

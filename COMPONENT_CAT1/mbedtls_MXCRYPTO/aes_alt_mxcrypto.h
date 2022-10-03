@@ -1,7 +1,6 @@
 /*
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
- *  an affiliate of Cypress Semiconductor Corporation.
+ *  Copyright (C) 2019-2022 Cypress Semiconductor Corporation
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -19,7 +18,7 @@
 
 /**
  * \file    aes_alt_mxcrypto.h
- * \version 1.4
+ * \version 2.0
  *
  * \brief   This file contains AES definitions and functions.
  *
@@ -48,7 +47,6 @@
 #define AES_ALT_H
 
 #if defined(MBEDTLS_AES_ALT)
-// Regular implementation
 
 #define CY_CIPHER_MODE_CBC_ALT
 
@@ -63,9 +61,9 @@
  */
 typedef struct mbedtls_aes_context
 {
-    cy_cmgr_crypto_hw_t obj;
-    cy_stc_crypto_aes_state_t aes_state;
-    cy_stc_crypto_aes_buffers_t aes_buffers;
+    cy_cmgr_crypto_hw_t MBEDTLS_PRIVATE(obj);
+    cy_stc_crypto_aes_state_t MBEDTLS_PRIVATE(aes_state);
+    cy_stc_crypto_aes_buffers_t MBEDTLS_PRIVATE(aes_buffers);
 }
 mbedtls_aes_context;
 
@@ -76,9 +74,9 @@ mbedtls_aes_context;
  */
 typedef struct mbedtls_aes_xts_context
 {
-    mbedtls_aes_context crypt; /*!< The AES context to use for AES block
+    mbedtls_aes_context MBEDTLS_PRIVATE(crypt); /*!< The AES context to use for AES block
                                         encryption or decryption. */
-    mbedtls_aes_context tweak; /*!< The AES context used for tweak
+    mbedtls_aes_context MBEDTLS_PRIVATE(tweak); /*!< The AES context used for tweak
                                         computation. */
 } mbedtls_aes_xts_context;
 

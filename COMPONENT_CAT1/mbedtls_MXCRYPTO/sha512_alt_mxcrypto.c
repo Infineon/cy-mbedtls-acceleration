@@ -1,8 +1,7 @@
 /*
  *  mbed Microcontroller Library
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
- *  an affiliate of Cypress Semiconductor Corporation.
+ *  Copyright (C) 2019-2022 Cypress Semiconductor Corporation
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -20,7 +19,7 @@
 
 /**
  * \file    sha512_alt_mxcrypto.c
- * \version 1.4
+ * \version 2.0
  *
  * \brief   Source file - wrapper for mbedtls SHA512 HW acceleration
  *
@@ -30,16 +29,16 @@
 
 #if defined (CY_IP_MXCRYPTO)
 
-#if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
-#else
-#include MBEDTLS_CONFIG_FILE
-#endif
+#include "mbedtls/build_info.h"
 
 #if defined(MBEDTLS_SHA512_C)
 
+/* Allow only *_alt implementations to access private members of structures*/
+#define MBEDTLS_ALLOW_PRIVATE_ACCESS
+
 #include "mbedtls/sha512.h"
 #include "mbedtls/platform_util.h"
+#include "mbedtls/compat-2.x.h"
 
 #if defined(MBEDTLS_SHA512_ALT)
 
@@ -74,10 +73,9 @@ void mbedtls_sha512_clone( mbedtls_sha512_context *dst, const mbedtls_sha512_con
 /*
  * SHA-512 context setup
  */
-int mbedtls_sha512_starts_ret( mbedtls_sha512_context *ctx, int is384)
+int mbedtls_sha512_starts( mbedtls_sha512_context *ctx, int is384)
 {
     SHA512_VALIDATE_RET( ctx != NULL );
-    SHA512_VALIDATE_RET( is384 == 0 || is384 == 1 );
 
     return cy_hw_sha_start(&ctx->obj, &ctx->hashState,
                            ( is384 == 0 ) ? CY_CRYPTO_MODE_SHA512 : CY_CRYPTO_MODE_SHA384,
@@ -87,10 +85,9 @@ int mbedtls_sha512_starts_ret( mbedtls_sha512_context *ctx, int is384)
 /*
  * SHA-512 process buffer
  */
-int mbedtls_sha512_update_ret( mbedtls_sha512_context *ctx, const unsigned char *input, size_t ilen )
+int mbedtls_sha512_update( mbedtls_sha512_context *ctx, const unsigned char *input, size_t ilen )
 {
     SHA512_VALIDATE_RET( ctx != NULL );
-    SHA512_VALIDATE_RET( ilen == 0 || input != NULL );
 
     if (ilen == 0)
         return (0);
@@ -101,7 +98,7 @@ int mbedtls_sha512_update_ret( mbedtls_sha512_context *ctx, const unsigned char 
 /*
  * SHA-512 final digest
  */
-int mbedtls_sha512_finish_ret( mbedtls_sha512_context *ctx, unsigned char output[64] )
+int mbedtls_sha512_finish( mbedtls_sha512_context *ctx, unsigned char *output )
 {
     SHA512_VALIDATE_RET( ctx != NULL );
     SHA512_VALIDATE_RET( (unsigned char *)output != NULL );

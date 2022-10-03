@@ -2,8 +2,7 @@
  *  Source file for mbedtls AES HW acceleration functions
  *
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
- *  an affiliate of Cypress Semiconductor Corporation.
+ *  Copyright (C) 2019-2022 Cypress Semiconductor Corporation
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -21,7 +20,7 @@
 
 /*
  * \file    aes_alt_mxcrypto.c
- * \version 1.4
+ * \version 2.0
  *
  * \brief   This file contains AES functions implementation.
  *
@@ -35,20 +34,20 @@
 
 #if defined (CY_IP_MXCRYPTO)
 
-#if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
-#else
-#include MBEDTLS_CONFIG_FILE
-#endif
+#include "mbedtls/build_info.h"
 
 #if defined(MBEDTLS_AES_C)
 
 #include <string.h>
 
+/* Allow only *_alt implementations to access private members of structures*/
+#define MBEDTLS_ALLOW_PRIVATE_ACCESS
+
 #include "mbedtls/aes.h"
 #include "mbedtls/platform.h"
 #include "mbedtls/platform_util.h"
 #include "mbedtls/error.h"
+#include "mbedtls/compat-2.x.h"
 
 #if defined(MBEDTLS_AES_ALT)
 
@@ -129,7 +128,7 @@ static int aes_set_keys( mbedtls_aes_context *ctx, const unsigned char *key,
 
     if (CY_CRYPTO_SUCCESS != status)
     {
-        ret = MBEDTLS_ERR_AES_HW_ACCEL_FAILED;
+        ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
     }
 
     return( ret );
@@ -253,7 +252,7 @@ int mbedtls_internal_aes_encrypt( mbedtls_aes_context *ctx,
 
     if (CY_CRYPTO_SUCCESS != status)
     {
-        ret = MBEDTLS_ERR_AES_HW_ACCEL_FAILED;
+        ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
     }
 
     return( ret );
@@ -285,7 +284,7 @@ int mbedtls_internal_aes_decrypt( mbedtls_aes_context *ctx,
 
     if (CY_CRYPTO_SUCCESS != status)
     {
-        ret = MBEDTLS_ERR_AES_HW_ACCEL_FAILED;
+        ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
     }
 
     return( ret );
@@ -311,8 +310,6 @@ int mbedtls_aes_crypt_ecb( mbedtls_aes_context *ctx,
     AES_VALIDATE_RET( ctx != NULL );
     AES_VALIDATE_RET( input != NULL );
     AES_VALIDATE_RET( output != NULL );
-    AES_VALIDATE_RET( mode == MBEDTLS_AES_ENCRYPT ||
-                      mode == MBEDTLS_AES_DECRYPT );
 
     if( mode == MBEDTLS_AES_ENCRYPT )
         return( mbedtls_internal_aes_encrypt( ctx, input, output ) );
@@ -337,8 +334,6 @@ int mbedtls_aes_crypt_cbc( mbedtls_aes_context *ctx,
     cy_en_crypto_status_t status;
 
     AES_VALIDATE_RET( ctx != NULL );
-    AES_VALIDATE_RET( mode == MBEDTLS_AES_ENCRYPT ||
-                      mode == MBEDTLS_AES_DECRYPT );
     AES_VALIDATE_RET( iv != NULL );
     AES_VALIDATE_RET( input != NULL );
     AES_VALIDATE_RET( output != NULL );
@@ -365,7 +360,7 @@ int mbedtls_aes_crypt_cbc( mbedtls_aes_context *ctx,
 
             if (CY_CRYPTO_SUCCESS != status)
             {
-                ret = MBEDTLS_ERR_AES_HW_ACCEL_FAILED;
+                ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
             }
         }
     }
@@ -385,7 +380,7 @@ int mbedtls_aes_crypt_cbc( mbedtls_aes_context *ctx,
 
             if (CY_CRYPTO_SUCCESS != status)
             {
-                ret = MBEDTLS_ERR_AES_HW_ACCEL_FAILED;
+                ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
             }
         }
     }
@@ -467,8 +462,6 @@ int mbedtls_aes_crypt_xts( mbedtls_aes_xts_context *ctx,
     unsigned char tmp[16];
 
     AES_VALIDATE_RET( ctx != NULL );
-    AES_VALIDATE_RET( mode == MBEDTLS_AES_ENCRYPT ||
-                      mode == MBEDTLS_AES_DECRYPT );
     AES_VALIDATE_RET( data_unit != NULL );
     AES_VALIDATE_RET( input != NULL );
     AES_VALIDATE_RET( output != NULL );
@@ -575,8 +568,6 @@ int mbedtls_aes_crypt_cfb128( mbedtls_aes_context *ctx,
     size_t n = *iv_off;
 
     AES_VALIDATE_RET( ctx != NULL );
-    AES_VALIDATE_RET( mode == MBEDTLS_AES_ENCRYPT ||
-                      mode == MBEDTLS_AES_DECRYPT );
     AES_VALIDATE_RET( iv_off != NULL );
     AES_VALIDATE_RET( iv != NULL );
     AES_VALIDATE_RET( input != NULL );
@@ -631,8 +622,6 @@ int mbedtls_aes_crypt_cfb8( mbedtls_aes_context *ctx,
     unsigned char ov[17];
 
     AES_VALIDATE_RET( ctx != NULL );
-    AES_VALIDATE_RET( mode == MBEDTLS_AES_ENCRYPT ||
-                      mode == MBEDTLS_AES_DECRYPT );
     AES_VALIDATE_RET( iv != NULL );
     AES_VALIDATE_RET( input != NULL );
     AES_VALIDATE_RET( output != NULL );

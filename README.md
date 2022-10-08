@@ -105,10 +105,11 @@ To use the mbedTLS library using ModusToolbox, perform following steps:
    
    _**Note:** If you want to enable the standard input output over UART, on CAT1A and CAT1C devices create Hello_World project from ModusToolbox instead of Empty_App project. For CAT1B devices Empty_App supports standard input output over UART._
 2. To add mbedTLS and cy-mbedtls-acceleration libraries to project, use the Library Manager. Use appropriate version of cy-mbedtls-acceleration, as listed in [dependencies to mbedTLS versions](./RELEASE.md/#dependencies-to-mbedtls-versions). For more details about Library Manager, refer to [ModusToolbox Software Environment, Quick Start Guide, Documentation, and Videos][modustoolbox-software-environment].
-3. To ignore MbedTLS sample programs and 3rdparty files, create .cyignore file in root directory of project and add following lines:
+3. To ignore MbedTLS sample programs, tests and 3rdparty files, create .cyignore file in root directory of project and add following lines:
     ```make
     $(SEARCH_mbedtls)/3rdparty
     $(SEARCH_mbedtls)/programs
+    $(SEARCH_mbedtls)/tests
     ```
 4. To configure mbedTLS and to use alt implementation, follow instructions provided from section 5 of **[How to use mbedTLS library with accelerated ALT implementations without using ModusToolbox](#how-to-use-mbedtls-library-with-accelerated-alt-implementations-without-using-modustoolbox)**.
 

@@ -4,7 +4,7 @@
 Please refer to the [README.md](./README.md) for a complete description of the CAT1A, CAT1B & CAT1C acceleration for mbedTLS library.
 New in this release:
 
-* Added support for MbedTLS 3.0
+* Added AES-GCM acceleration for CAT1A and CAT1C MCUs 
 
 ### Limitations
 Currently Cypress CAT1A & CAT1C acceleration doesn't support:
@@ -15,7 +15,6 @@ Currently Cypress CAT1A & CAT1C acceleration doesn't support:
 - ECP 25519 curve
 - CHACHA20
 - SHA3
-- AES GCM
 - POLY1305
 
 Currently Cypress CAT1B acceleration supports only
@@ -29,24 +28,25 @@ This version of the CAT1A, CAT1B & CAT1C acceleration for mbedTLS library was va
 | Software and Tools                                      | Version   |
 | :---                                                    | :-------: |
 | ModusToolbox Software Environment                       | 3.0       |
-| mtb-pdl-cat1  Peripheral Driver Library (PDL)           | 3.0       |
+| mtb-pdl-cat1  Peripheral Driver Library (PDL)           | 3.3.0     |
 | mtb-hal-cat1 Hardware Abstraction Layer(HAL)            | 2.2       |
-| GCC Compiler                                            | 10.3.1 |
-| IAR Compiler                                            | 9.3       |
-| ARM Compiler 6                                          | 6.16      |
+| GCC Compiler                                            | 10.2.1.72 |
+| IAR Compiler                                            | 8.4       |
+| ARM Compiler 6                                          | 6.13      |
 
 ### Dependencies to mbedTLS versions
-| cy-mbedtls-acceleration version                         | mbedTLS version |
-| :---:                                                   | :----:  |
-| 2.0 												  | 3.0.0   |
+| cy-mbedtls-acceleration version                             | mbedTLS version |
+| :---:                                                       | :----:  |
+| 2.0, 2.1 												      | 3.0.0   |
 
 
 ### Change log
 
-| Version |	Changes                                       | Reason for Change |
-| :----:  |	:---                                          | :----             |
-| 2.0   |	Initial version adding support for MbedTLS 3.0 | MbedTLS 3.0 support |
+| Version |	Changes                                             | Reason for Change |
+| :----:  |	:---                                                | :----             |
+| 2.1   |	Added AES-GCM acceleration for CAT1A and CAT1C MCUs | New alt driver added |
+| 2.0   |	Initial version adding support for MbedTLS 3.0      | MbedTLS 3.0 support |
 
 
 ---
-© Cypress Semiconductor Corporation, 2019-2022.
+© Cypress Semiconductor Corporation, 2019-2023.

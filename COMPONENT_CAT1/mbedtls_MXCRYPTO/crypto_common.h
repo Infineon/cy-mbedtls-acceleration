@@ -1,6 +1,6 @@
 /*
  * mbed Microcontroller Library
- * Copyright (c) 2019-2022 Cypress Semiconductor Corporation
+ * Copyright (c) 2019-2023 Cypress Semiconductor Corporation
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,7 @@
 
 /**
  * \file    crypto_common.h
- * \version 2.0
+ * \version 2.1
  *
  * \brief   Header file for common mbedtls acceleration functions
  *

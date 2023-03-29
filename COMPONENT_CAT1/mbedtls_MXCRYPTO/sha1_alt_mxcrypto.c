@@ -1,7 +1,7 @@
 /*
  *  mbed Microcontroller Library
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (C) 2019-2022 Cypress Semiconductor Corporation
+ *  Copyright (C) 2019-2023 Cypress Semiconductor Corporation
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -19,7 +19,7 @@
 
 /**
  * \file    sha1_alt_mxcrypto.c
- * \version 2.0
+ * \version 2.1
  *
  * \brief   Source file - wrapper for mbedtls SHA1 HW acceleration
  *

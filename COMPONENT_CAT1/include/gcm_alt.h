@@ -1,5 +1,4 @@
 /*
- *  mbed Microcontroller Library
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
  *  Copyright (c) (2019-2023), Cypress Semiconductor Corporation (an Infineon company) or
  *  an affiliate of Cypress Semiconductor Corporation.
@@ -19,37 +18,22 @@
  */
 
 /**
- * \file    sha1_alt_mxcrypto.h
+ * \file    gcm_alt.h
  * \version 1.5
  *
- * \brief   header file - wrapper for mbedtls SHA1 HW acceleration
- *
+ * \brief   This file contains AES GCM definitions and functions.
+   *
+    * http://csrc.nist.gov/publications/nistpubs/800-38D/SP-800-38D.pdf
+    *
+    * See also:
+    * [MGV] http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-revised-spec.pdf
  */
+
 
 #include "cy_device.h"
 
 #if defined (CY_IP_MXCRYPTO)
-
-#if !defined(SHA1_ALT_H)
-#define SHA1_ALT_H
-
-#include "crypto_common.h"
-
-#if defined(MBEDTLS_SHA1_ALT)
-
-typedef struct mbedtls_sha1_context {
-    cy_cmgr_crypto_hw_t obj;
-    cy_stc_crypto_sha_state_t hashState;         /* Structure used by CY Crypto Driver   */
-    #if (CY_IP_MXCRYPTO_VERSION == 1u)
-    cy_stc_crypto_v1_sha1_buffers_t shaBuffers;  /* Structure used by CY Crypto Driver   */
-    #else
-    cy_stc_crypto_v2_sha1_buffers_t shaBuffers;  /* Structure used by CY Crypto Driver   */
-    #endif
-}
-mbedtls_sha1_context;
-
-#endif /* MBEDTLS_SHA1_ALT */
-
-#endif /* (SHA1_ALT_H) */
-
+    #include "aes_gcm_alt_mxcrypto.h"
+#else
+    #error mbedTLS ALT for AES GCM is not supported
 #endif /* CY_IP_MXCRYPTO */

@@ -1,7 +1,7 @@
 /*
  *  mbed Microcontroller Library
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (c) (2019-2022), Cypress Semiconductor Corporation (an Infineon company) or
+ *  Copyright (c) (2019-2023), Cypress Semiconductor Corporation (an Infineon company) or
  *  an affiliate of Cypress Semiconductor Corporation.
  *  SPDX-License-Identifier: Apache-2.0
  *
@@ -20,7 +20,7 @@
 
 /**
  * \file    sha1_alt.h
- * \version 1.4
+ * \version 1.5
  *
  * \brief   header file - wrapper for mbedtls SHA1 HW acceleration
  *

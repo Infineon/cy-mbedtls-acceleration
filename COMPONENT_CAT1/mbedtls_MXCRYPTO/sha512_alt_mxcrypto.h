@@ -19,7 +19,7 @@
 
 /**
  * \file    sha512_alt_mxcrypto.h
- * \version 2.1
+ * \version 2.1.1
  *
  * \brief   header file - wrapper for mbedtls SHA512 HW acceleration
  *

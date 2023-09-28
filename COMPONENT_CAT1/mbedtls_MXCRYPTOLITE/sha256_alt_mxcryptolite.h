@@ -19,7 +19,7 @@
 
 /**
  * \file     sha256_alt_mxcryptolite.h
- * \version 2.1
+ * \version 2.1.1
  *
  * \brief    header file - wrapper for mbedtls SHA256 HW acceleration
  *

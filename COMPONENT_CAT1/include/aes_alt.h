@@ -18,7 +18,7 @@
 
 /**
  * \file    aes_alt.h
- * \version 2.1
+ * \version 2.1.1
  *
  * \brief   This file contains AES definitions and functions.
  *

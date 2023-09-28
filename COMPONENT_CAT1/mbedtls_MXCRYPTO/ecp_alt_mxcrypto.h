@@ -19,7 +19,7 @@
 
 /**
  * \file    ecp_alt_mxcrypto.h
- * \version 2.1
+ * \version 2.1.1
  *
  * \brief   This file provides an API for Elliptic Curves over GF(P) (ECP).
  *

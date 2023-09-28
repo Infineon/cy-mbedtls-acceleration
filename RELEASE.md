@@ -4,7 +4,7 @@
 Please refer to the [README.md](./README.md) for a complete description of the CAT1A, CAT1B & CAT1C acceleration for mbedTLS library.
 New in this release:
 
-* Added AES-GCM acceleration for CAT1A and CAT1C MCUs 
+* Fixed minor compilation warning.
 
 ### Limitations
 Currently Cypress CAT1A & CAT1C acceleration doesn't support:
@@ -27,12 +27,12 @@ This version of the CAT1A, CAT1B & CAT1C acceleration for mbedTLS library was va
 
 | Software and Tools                                      | Version   |
 | :---                                                    | :-------: |
-| ModusToolbox Software Environment                       | 3.0       |
-| mtb-pdl-cat1  Peripheral Driver Library (PDL)           | 3.3.0     |
-| mtb-hal-cat1 Hardware Abstraction Layer(HAL)            | 2.2       |
-| GCC Compiler                                            | 10.2.1.72 |
-| IAR Compiler                                            | 8.4       |
-| ARM Compiler 6                                          | 6.13      |
+| ModusToolbox Software Environment                       | 3.1       |
+| mtb-pdl-cat1  Peripheral Driver Library (PDL)           | 3.7.0     |
+| mtb-hal-cat1 Hardware Abstraction Layer(HAL)            | 2.4.0     |
+| GCC Compiler                                            | 11.3.1    |
+| IAR Compiler                                            | 9.3       |
+| ARM Compiler 6                                          | 6.16      |
 
 ### Dependencies to mbedTLS versions
 | cy-mbedtls-acceleration version                             | mbedTLS version |
@@ -44,6 +44,7 @@ This version of the CAT1A, CAT1B & CAT1C acceleration for mbedTLS library was va
 
 | Version |	Changes                                             | Reason for Change |
 | :----:  |	:---                                                | :----             |
+| 2.1.1   |	Fixed sha1 finish api signature|	 Compilation warning  |
 | 2.1   |	Added AES-GCM acceleration for CAT1A and CAT1C MCUs | New alt driver added |
 | 2.0   |	Initial version adding support for MbedTLS 3.0      | MbedTLS 3.0 support |
 

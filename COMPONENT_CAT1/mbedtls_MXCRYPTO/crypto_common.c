@@ -18,7 +18,7 @@
 
 /**
  * \file    crypto_common.c
- * \version 2.1
+ * \version 2.1.1
  *
  * \brief   Source file for common mbedtls acceleration functions
  *

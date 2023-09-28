@@ -19,7 +19,7 @@
 
 /**
  * \file     sha256_alt_mxcryptolite.c
- * \version 2.1
+ * \version 2.1.1
  *
  * \brief    Source file - wrapper for mbedtls SHA256 HW acceleration
  *

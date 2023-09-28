@@ -19,7 +19,7 @@
 
 /**
  * \file    sha1_alt_mxcrypto.c
- * \version 2.1
+ * \version 2.1.1
  *
  * \brief   Source file - wrapper for mbedtls SHA1 HW acceleration
  *
@@ -99,7 +99,7 @@ int mbedtls_sha1_update( mbedtls_sha1_context *ctx,
 /*
  * SHA-1 final digest
  */
-int mbedtls_sha1_finish( mbedtls_sha1_context *ctx, unsigned char *output)
+int mbedtls_sha1_finish( mbedtls_sha1_context *ctx, unsigned char output[20] )
 {
     SHA1_VALIDATE_RET( ctx != NULL );
     SHA1_VALIDATE_RET( (unsigned char *)output != NULL );

@@ -21,7 +21,7 @@
 
 /*
  * \file    ecp_curves_alt_mxcrypto.c
- * \version 2.1
+ * \version 2.1.1
  *
  */
 

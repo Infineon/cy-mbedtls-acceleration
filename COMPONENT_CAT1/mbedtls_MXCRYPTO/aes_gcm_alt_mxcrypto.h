@@ -19,7 +19,7 @@
 
 /*
  * \file    aes_gcm_alt_mxcrypto.h
- * \version 2.1.1
+ * \version 2.2.0
  *
  * \brief This file contains GCM definitions and functions.
  *

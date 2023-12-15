@@ -19,7 +19,7 @@
 
 /**
  * \file    ecp_alt_mxcrypto.h
- * \version 2.1.1
+ * \version 2.2.0
  *
  * \brief   This file provides an API for Elliptic Curves over GF(P) (ECP).
  *
@@ -137,8 +137,7 @@ mbedtls_ecp_group;
  * \{
  */
 
-#define MBEDTLS_ECP_MAX_BYTES    ( ( MBEDTLS_ECP_MAX_BITS + 7 ) / 8 )
-#define MBEDTLS_ECP_MAX_PT_LEN   ( 2 * MBEDTLS_ECP_MAX_BYTES + 1 )
+
 
 #if !defined(MBEDTLS_ECP_WINDOW_SIZE)
 /*

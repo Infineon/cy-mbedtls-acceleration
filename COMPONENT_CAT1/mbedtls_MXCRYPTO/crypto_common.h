@@ -18,7 +18,7 @@
 
 /**
  * \file    crypto_common.h
- * \version 2.1.1
+ * \version 2.2.0
  *
  * \brief   Header file for common mbedtls acceleration functions
  *
@@ -58,6 +58,7 @@
 #endif
 
 #include "cy_crypto_core.h"
+#include "mbedtls/private_access.h"
 
 #if defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE)
 
@@ -83,7 +84,6 @@ typedef cyhal_resource_inst_t  cy_cmgr_resource_inst_t;
 
 #else /* defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE) */
 
-#include "mbedtls/private_access.h"
 
 typedef enum
 {

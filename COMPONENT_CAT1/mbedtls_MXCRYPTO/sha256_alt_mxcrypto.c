@@ -19,7 +19,7 @@
 
 /**
  * \file    sha256_alt_mxcrypto.c
- * \version 2.1.1
+ * \version 2.2.0
  *
  * \brief   Source file - wrapper for mbedtls SHA256 HW acceleration
  *

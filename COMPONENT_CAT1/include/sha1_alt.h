@@ -19,7 +19,7 @@
 
 /**
  * \file    sha1_alt.h
- * \version 2.1.1
+ * \version 2.2.0
  *
  * \brief   header file - wrapper for mbedtls SHA1 HW acceleration
  *

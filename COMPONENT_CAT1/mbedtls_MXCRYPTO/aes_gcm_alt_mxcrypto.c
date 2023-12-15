@@ -21,7 +21,7 @@
 
 /*
  * \file    aes_gcm_alt_mxcrypto.c
- * \version 2.1.1
+ * \version 2.2.0
  *
  * \brief   This file contains AES GCM functions implementation.
  *

@@ -21,7 +21,7 @@
 
 /*
  * \file    ecdh_alt_mxcrypto.c
- * \version 2.1.1
+ * \version 2.2.0
  *
  * \brief   This file provides an API for ECDH algorithm acceleration.
  *

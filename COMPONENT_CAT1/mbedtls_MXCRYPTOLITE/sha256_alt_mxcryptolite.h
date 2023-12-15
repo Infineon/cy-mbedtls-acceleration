@@ -1,8 +1,7 @@
 /*
  *  mbed Microcontroller Library
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (c) (2019-2023), Cypress Semiconductor Corporation (an Infineon company) or
- *  an affiliate of Cypress Semiconductor Corporation.
+ *  Copyright (C) 2019-2023 Cypress Semiconductor Corporation
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -20,7 +19,7 @@
 
 /**
  * \file     sha256_alt_mxcryptolite.h
- * \version 1.5
+ * \version 2.2.0
  *
  * \brief    header file - wrapper for mbedtls SHA256 HW acceleration
  *
@@ -33,18 +32,14 @@
 #if !defined(SHA256_ALT_H)
 #define SHA256_ALT_H
 
-#if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
-#else
-#include MBEDTLS_CONFIG_FILE
-#endif
+#include "mbedtls/build_info.h"
 
 #include "cy_cryptolite.h"
 
 #if defined(MBEDTLS_SHA256_ALT)
 
 typedef struct mbedtls_sha256_context {
-    cy_stc_cryptolite_context_sha256_t hashState;      /* Structure used by CY Cryptolite Driver   */
+    cy_stc_cryptolite_context_sha256_t MBEDTLS_PRIVATE(hashState);      /* Structure used by CY Cryptolite Driver   */
 }
 mbedtls_sha256_context;
 

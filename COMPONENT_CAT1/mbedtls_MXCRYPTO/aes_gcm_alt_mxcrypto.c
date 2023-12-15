@@ -19,36 +19,35 @@
  *  limitations under the License.
  */
 
-/**
+/*
  * \file    aes_gcm_alt_mxcrypto.c
- * \version 1.5
+ * \version 2.2.0
  *
  * \brief   This file contains AES GCM functions implementation.
-    *
-    * http://csrc.nist.gov/publications/nistpubs/800-38D/SP-800-38D.pdf
-    *
-    * See also:
-    * [MGV] http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-revised-spec.pdf
+ *
+ * http://csrc.nist.gov/publications/nistpubs/800-38D/SP-800-38D.pdf
+ *
+ * See also:
+ * [MGV] http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-revised-spec.pdf
  */
 
 #include "cy_device.h"
 
 #if defined (CY_IP_MXCRYPTO)
 
-#if !defined(MBEDTLS_CONFIG_FILE)
-#include "mbedtls/config.h"
-#else
-#include MBEDTLS_CONFIG_FILE
-#endif
+#include "mbedtls/build_info.h"
 
 #if defined(MBEDTLS_GCM_C)
 
-#include <string.h>
+/* Allow only *_alt implementations to access private members of structures*/
+#define MBEDTLS_ALLOW_PRIVATE_ACCESS
 
 #include "mbedtls/gcm.h"
 #include "mbedtls/platform.h"
 #include "mbedtls/platform_util.h"
 #include "mbedtls/error.h"
+
+#include <string.h>
 
 #if defined(MBEDTLS_GCM_ALT)
 
@@ -79,7 +78,7 @@ int mbedtls_gcm_setkey(mbedtls_gcm_context *ctx,
                        const unsigned char *key,
                        unsigned int keybits)
 {
-    
+
     cy_en_crypto_aes_key_length_t key_length;
     cy_en_crypto_status_t status;
 
@@ -100,24 +99,21 @@ int mbedtls_gcm_setkey(mbedtls_gcm_context *ctx,
     }
 
     status = Cy_Crypto_Core_Aes_GCM_Init(ctx->obj.base, &ctx->aes_buffers, &ctx->aes_state);
-    if (CY_CRYPTO_SUCCESS != status)
+    if (CY_CRYPTO_SUCCESS == status)
     {
-        return MBEDTLS_ERR_GCM_HW_ACCEL_FAILED;
+        status = Cy_Crypto_Core_Aes_GCM_SetKey(ctx->obj.base, key, key_length, &ctx->aes_state);
     }
 
-    status = Cy_Crypto_Core_Aes_GCM_SetKey(ctx->obj.base, key, key_length, &ctx->aes_state);
-
     if (CY_CRYPTO_SUCCESS != status)
     {
-        return MBEDTLS_ERR_GCM_HW_ACCEL_FAILED;
+        return MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
     }
 
     return 0;
 }
 
 
-int mbedtls_gcm_starts(mbedtls_gcm_context *ctx, int mode, const unsigned char *iv, size_t iv_len, const unsigned char *add,
-                size_t add_len)
+int mbedtls_gcm_starts(mbedtls_gcm_context *ctx, int mode, const unsigned char *iv, size_t iv_len)
 {
 
     cy_en_crypto_status_t status;
@@ -125,15 +121,11 @@ int mbedtls_gcm_starts(mbedtls_gcm_context *ctx, int mode, const unsigned char *
 
     GCM_VALIDATE_RET( ctx != NULL );
     GCM_VALIDATE_RET( iv != NULL );
-    GCM_VALIDATE_RET( add_len == 0 || add != NULL );
 
-    /* IV and AD are limited to 2^64 bits, so 2^61 bytes */
+    /* IV is limited to 2^64 bits, so 2^61 bytes */
     /* IV is not allowed to be zero length */
-    if( iv_len == 0 ||
-      ( (uint64_t) iv_len  ) >> 61 != 0 ||
-      ( (uint64_t) add_len ) >> 61 != 0 )
-    {
-        return( MBEDTLS_ERR_GCM_BAD_INPUT );
+    if (iv_len == 0 || (uint64_t) iv_len >> 61 != 0) {
+        return MBEDTLS_ERR_GCM_BAD_INPUT;
     }
 
     switch( mode )
@@ -147,64 +139,94 @@ int mbedtls_gcm_starts(mbedtls_gcm_context *ctx, int mode, const unsigned char *
 
     if (CY_CRYPTO_SUCCESS != status)
     {
-        return MBEDTLS_ERR_GCM_HW_ACCEL_FAILED;
+        return MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
     }
 
+    return 0;
+}
+
+
+int mbedtls_gcm_update_ad( mbedtls_gcm_context *ctx,
+                           const unsigned char *add, size_t add_len )
+
+{
+    cy_en_crypto_status_t status;
+
+    GCM_VALIDATE_RET( add_len == 0 || add != NULL );
+
+    /* IV is limited to 2^64 bits, so 2^61 bytes */
+    if( (uint64_t) add_len >> 61 != 0 )
+        return( MBEDTLS_ERR_GCM_BAD_INPUT );
 
     status = Cy_Crypto_Core_Aes_GCM_AAD_Update(ctx->obj.base, (uint8_t *)add, add_len, &ctx->aes_state);
 
     if (CY_CRYPTO_SUCCESS != status)
     {
-        return MBEDTLS_ERR_GCM_HW_ACCEL_FAILED;
+        return MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
     }
-
 
     return 0;
 }
 
 
 int mbedtls_gcm_update( mbedtls_gcm_context *ctx,
-                size_t length,
-                const unsigned char *input,
-                unsigned char *output )
+                        const unsigned char *input, size_t input_length,
+                        unsigned char *output, size_t output_size,
+                        size_t *output_length )
 {
     cy_en_crypto_status_t status;
 
-    GCM_VALIDATE_RET( ctx != NULL );
-    GCM_VALIDATE_RET( length == 0 || input != NULL );
-    GCM_VALIDATE_RET( length == 0 || output != NULL );
+    if( output_size < input_length )
+        return( MBEDTLS_ERR_GCM_BAD_INPUT );
 
-    if( output > input && (size_t) ( output - input ) < length )
+    GCM_VALIDATE_RET( output_length != NULL );
+    *output_length = input_length;
+
+    if( input_length == 0 )
+    return( 0 );
+
+    GCM_VALIDATE_RET( ctx != NULL );
+    GCM_VALIDATE_RET( input != NULL );
+    GCM_VALIDATE_RET( output != NULL );
+
+    if( output > input && (size_t) ( output - input ) < input_length )
         return( MBEDTLS_ERR_GCM_BAD_INPUT );
 
     /* Total length is restricted to 2^39 - 256 bits, ie 2^36 - 2^5 bytes
      * Also check for possible overflow */
-    if( ctx->aes_state.data_size + length < ctx->aes_state.data_size  ||
-        (uint64_t) ctx->aes_state.data_size + length > 0xFFFFFFFE0ull )
+    if( ctx->aes_state.data_size + input_length < ctx->aes_state.data_size  ||
+        (uint64_t) ctx->aes_state.data_size + input_length > 0xFFFFFFFE0ull )
     {
         return( MBEDTLS_ERR_GCM_BAD_INPUT );
     }
 
-    status = Cy_Crypto_Core_Aes_GCM_Update(ctx->obj.base, input,  length, output, &ctx->aes_state);
+    status = Cy_Crypto_Core_Aes_GCM_Update(ctx->obj.base, input,  input_length, output, &ctx->aes_state);
 
     if (CY_CRYPTO_SUCCESS != status)
     {
-        return MBEDTLS_ERR_GCM_HW_ACCEL_FAILED;
+        return MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
     }
 
-return 0;
+    return 0;
 }
 
 
 int mbedtls_gcm_finish( mbedtls_gcm_context *ctx,
-                unsigned char *tag,
-                size_t tag_len)
+                        unsigned char *output, size_t output_size,
+                        size_t *output_length,
+                        unsigned char *tag, size_t tag_len )
 {
     cy_en_crypto_status_t status;
 
     GCM_VALIDATE_RET( ctx != NULL );
     GCM_VALIDATE_RET( tag != NULL );
-    
+
+    /* We never pass any output in finish(). The output parameter exists only
+     * for the sake of alternative implementations. */
+    (void) output;
+    (void) output_size;
+    *output_length = 0;
+
     if (tag_len > 16 || tag_len < 4) {
         return MBEDTLS_ERR_GCM_BAD_INPUT;
     }
@@ -213,7 +235,7 @@ int mbedtls_gcm_finish( mbedtls_gcm_context *ctx,
 
     if (CY_CRYPTO_SUCCESS != status)
     {
-        return MBEDTLS_ERR_GCM_HW_ACCEL_FAILED;
+        return MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
     }
 
     return 0;
@@ -234,6 +256,7 @@ int mbedtls_gcm_crypt_and_tag(mbedtls_gcm_context *ctx,
 {
 
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    size_t olen;
 
     GCM_VALIDATE_RET( ctx != NULL );
     GCM_VALIDATE_RET( iv != NULL );
@@ -242,17 +265,21 @@ int mbedtls_gcm_crypt_and_tag(mbedtls_gcm_context *ctx,
     GCM_VALIDATE_RET( length == 0 || output != NULL );
     GCM_VALIDATE_RET( tag != NULL );
 
-    if( ( ret = mbedtls_gcm_starts( ctx, mode, iv, iv_len, add, add_len ) ) != 0 )
+    if( ( ret = mbedtls_gcm_starts( ctx, mode, iv, iv_len ) ) != 0 )
         return( ret );
 
-    if( ( ret = mbedtls_gcm_update( ctx, length, input, output ) ) != 0 )
+    if( ( ret = mbedtls_gcm_update_ad( ctx, add, add_len ) ) != 0 )
         return( ret );
 
-    if( ( ret = mbedtls_gcm_finish( ctx, tag, tag_len ) ) != 0 )
+    if( ( ret = mbedtls_gcm_update( ctx, input, length,
+                                    output, length, &olen ) ) != 0 )
+        return( ret );
+
+    if( ( ret = mbedtls_gcm_finish( ctx, NULL, 0, &olen, tag, tag_len ) ) != 0 )
         return( ret );
 
     return( 0 );
-    
+
 }
 
 
@@ -277,10 +304,11 @@ int mbedtls_gcm_auth_decrypt(mbedtls_gcm_context *ctx,
     GCM_VALIDATE_RET( length == 0 || input != NULL );
     GCM_VALIDATE_RET( length == 0 || output != NULL );
 
-    if ((ret = mbedtls_gcm_crypt_and_tag(ctx, MBEDTLS_GCM_DECRYPT, length,
-                                         iv, iv_len, add, add_len,
-                                         input, output, tag_len, check_tag)) != 0) {
-        return ret;
+    if( ( ret = mbedtls_gcm_crypt_and_tag( ctx, MBEDTLS_GCM_DECRYPT, length,
+                                   iv, iv_len, add, add_len,
+                                   input, output, tag_len, check_tag ) ) != 0 )
+    {
+        return( ret );
     }
 
     if(Cy_Crypto_Core_MemCmp(ctx->obj.base, tag, check_tag, tag_len) != 0U)
@@ -305,9 +333,6 @@ void mbedtls_gcm_free(mbedtls_gcm_context *ctx)
     cy_hw_zeroize(ctx, sizeof(mbedtls_gcm_context));
 }
 
-
 #endif /* MBEDTLS_GCM_ALT */
-
 #endif /* MBEDTLS_GCM_C */
-
 #endif /* CY_IP_MXCRYPTO */

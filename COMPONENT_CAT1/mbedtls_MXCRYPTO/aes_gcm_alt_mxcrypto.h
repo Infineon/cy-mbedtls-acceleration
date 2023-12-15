@@ -17,18 +17,19 @@
  *  limitations under the License.
  */
 
-/**
+/*
  * \file    aes_gcm_alt_mxcrypto.h
- * \version 1.5
+ * \version 2.2.0
  *
- * \brief   This file contains AES GCM definitions and functions.
-   *
-    * http://csrc.nist.gov/publications/nistpubs/800-38D/SP-800-38D.pdf
-    *
-    * See also:
-    * [MGV] http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-revised-spec.pdf
+ * \brief This file contains GCM definitions and functions.
+ *
+ * The Galois/Counter Mode (GCM) for 128-bit block ciphers is defined
+ * in D. McGrew, J. Viega, The Galois/Counter Mode of Operation
+ * (GCM), Natl. Inst. Stand. Technol.
+ *
+ * For more information on GCM, see NIST SP 800-38D: Recommendation for
+ * Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC.
  */
- 
 
 #include "cy_device.h"
 
@@ -50,13 +51,12 @@
  */
 typedef struct mbedtls_gcm_context
 {
-    cy_cmgr_crypto_hw_t obj;
-    cy_stc_crypto_aes_gcm_state_t aes_state;
-    cy_stc_crypto_aes_gcm_buffers_t aes_buffers;
+    cy_cmgr_crypto_hw_t MBEDTLS_PRIVATE(obj);
+    cy_stc_crypto_aes_gcm_state_t MBEDTLS_PRIVATE(aes_state);
+    cy_stc_crypto_aes_gcm_buffers_t MBEDTLS_PRIVATE(aes_buffers);
 }
 mbedtls_gcm_context;
+
 #endif /* MBEDTLS_GCM_ALT */
-
 #endif /* AES_GCM_ALT_H */
-
 #endif /* CY_IP_MXCRYPTO */

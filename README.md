@@ -1,8 +1,8 @@
-# mbedTLS Crypto acceleration for CAT1A, CAT1B and CAT1C MCUs
+# mbedTLS Crypto acceleration for CAT1A, CAT1B & CAT1C MCUs
 
-This repository contains mbedTLS hardware accelerated basic cryptography implemented for CAT1A, CAT1B and CAT1C MCUs.
+This repository contains mbedTLS hardware accelerated basic cryptography implemented for CAT1A, CAT1B & CAT1C MCUs.
 
-It provides an easy to use mbedTLS library for CAT1A, CAT1B and CAT1C MCUs with crypto accelerated hardware. The goal is to make the cryptography features of CAT1A, CAT1B and CAT1C MCUs available to the developer using a simple configuration flow.
+It provides an easy to use mbedTLS library for CAT1A, CAT1B & CAT1C MCUs with crypto accelerated hardware. The goal is to make the cryptography features of CAT1A, CAT1B & CAT1C MCUs available to the developer using a simple configuration flow.
 
 ### mbedTLS library
 The [mbedTLS][mbedTLS-lib] library makes it easy for developers to include cryptographic and SSL/TLS capabilities in their products, facilitating this functionality with a minimal coding footprint.
@@ -18,35 +18,36 @@ mbedTLS provides a software-only implementation of basic crypto algorithms. The 
 - Asn1
 
 ### cy-mbedtls-acceleration
-This repo is implemented as an extension of mbedTLS to add CAT1A, CAT1B and CAT1C MCUs hardware acceleration for the basic crypto algorithms.
+This repo is implemented as an extension of mbedTLS to add CAT1A, CAT1B & CAT1C MCUs hardware acceleration for the basic crypto algorithms.
 It requires these other products:
 
 - [mtb-pdl-cat1][mtb-pdl-cat1] - PDL driver library
-- [mtb-hal-cat1][mtb-hal-cat1] - HAL layer for Cypress MCUs
+- [mtb-hal-cat1][mtb-hal-cat1] - HAL layer for Cypress MCUss
 
 mbedTLS library provides a standardized method to extend the implementation by defining special macros.
 
 ### How to use mbedTLS library with accelerated ALT implementations without using ModusToolbox
-To use the mbedTLS library with CAT1A, CAT1B and CAT1C hardware acceleration, perform these steps
-(you can skip steps 1-2 if mbedTLS library is already present in the project).
+To use the mbedTLS library with CAT1A / CAT1B / CAT1C hardware acceleration, perform these steps
+( you can skip steps 1-2 if mbedTLS library is already present in the project ).
 
 1. Download mbedTLS library into your project's root directory
     ```shell
-    git clone -b mbedtls-2.26.0 --recursive https://github.com/ARMmbed/mbedtls.git
+    git clone -b mbedtls-3.0.0 --recursive https://github.com/ARMmbed/mbedtls.git
     ```
-    _**Note:** Above command will check out mbedtls-2.26.0 tag. To get the list of compatible mbedTLS tags with cy-mbedtls-acceleration package, refer to [dependencies to mbedTLS versions](./RELEASE.md/#dependencies-to-mbedtls-versions)._
-2. Add its files to INCLUDES and SOURCES directory search in makefile. For more details about mbedTLS, refer to [mbedTLS Knowledge Base](https://tls.mbed.org/kb).
-3. Download cy-mbedtls-acceleration package into your project root directory.
+    _**Note:** Above command will check out mbedtls-3.0.0 tag. To get the list of compatible mbedTLS tags with cy-mbedtls-acceleration package, refer to [dependencies to mbedTLS versions](./RELEASE.md/#dependencies-to-mbedtls-versions)._
+1. Add its files to INCLUDES and SOURCES directory search in makefile. For more details about mbedTLS, refer to [mbedTLS Knowledge Base](https://tls.mbed.org/kb).
+1. Download cy-mbedtls-acceleration package into your project root directory.
     ```shell
     git clone https://github.com/Infineon/cy-mbedtls-acceleration.git
+
     ```
     _**Note:** Use appropriate version of cy-mbedtls-acceleration, as listed in [dependencies to mbedTLS versions](./RELEASE.md/#dependencies-to-mbedtls-versions)._
-4. To enable hardware acceleration for your platform, use following files.
+2. To enable hardware acceleration for your platform, use following files.
       ```make
       INCLUDES += -ICOMPONENT_CAT1/include -ICOMPONENT_CAT1/mbedtls_MXCRYPTO -ICOMPONENT_CAT1/mbedtls_MXCRYPTOLITE
       SOURCES += $(wildcard COMPONENT_CAT1/mbedtls_MXCRYPTO/*.c) $(wildcard COMPONENT_CAT1/mbedtls_MXCRYPTOLITE/*.c)
       ```
-5. To enable any accelerated feature, add the appropriate define to the mbedtls configuration file. The list of supported features for your platform is available at [features section](#features).
+3. To enable any accelerated feature, add the appropriate define to the mbedtls configuration file. The list of supported features for your platform is available at [features section](#features).
 
 	For example, to use the accelerated implementation for AES algorithm, add the **MBEDTLS_AES_ALT** macro definition to the configuration file (***mbedtls-config.h***):
 	```c++
@@ -59,6 +60,7 @@ To use the mbedTLS library with CAT1A, CAT1B and CAT1C hardware acceleration, pe
 
 	/* Currently this target supports SHA1 & SHA256 */
 	#define MBEDTLS_SHA1_C
+    #define MBEDTLS_SHA224_C
     #define MBEDTLS_SHA256_C
 
 	#define MBEDTLS_SHA1_ALT
@@ -90,14 +92,12 @@ To use the mbedTLS library with CAT1A, CAT1B and CAT1C hardware acceleration, pe
     #define MBEDTLS_NO_PLATFORM_ENTROPY
 	```
 
-    _**Note:** [mbedtls_alt_config.h](./mbedtls_alt_config.h) automatically enables all accelerated features supported by hardware. You can include it in your MBEDTLS_CONFIG_FILE._
-
-6. Define a macro MBEDTLS_CONFIG_FILE with configuration file name and add to project environment a define:
+1. Define a macro MBEDTLS_CONFIG_FILE with configuration file name and add to project environment a define:
     ```make
     DEFINES += MBEDTLS_CONFIG_FILE="<mbedtls-config.h>"
     ```
-7. Create your application source file and add to those SOURCES directory search in makefile. [Sample application source file](#hardware-accelerated-mbedtls-code-example) can be used for the reference.
-8. Make the project.
+1. Create your application source file and add to those SOURCES directory search in makefile. [Sample application source file](#hardware-accelerated-mbedtls-code-example) can be used for the reference.
+1. Make the project.
 
 ### How to use mbedTLS library with accelerated ALT implementations in ModusToolbox 2.3+
 
@@ -107,14 +107,15 @@ To use the mbedTLS library using ModusToolbox, perform following steps:
    
    _**Note:** If you want to enable the standard input output over UART, on CAT1A and CAT1C devices create Hello_World project from ModusToolbox instead of Empty_App project. For CAT1B devices Empty_App supports standard input output over UART._
 2. To add mbedTLS and cy-mbedtls-acceleration libraries to project, use the Library Manager. Use appropriate version of cy-mbedtls-acceleration, as listed in [dependencies to mbedTLS versions](./RELEASE.md/#dependencies-to-mbedtls-versions). For more details about Library Manager, refer to [ModusToolbox Software Environment, Quick Start Guide, Documentation, and Videos][modustoolbox-software-environment].
-3. To ignore MbedTLS sample programs and 3rdparty files, create .cyignore file in root directory of project and add following lines:
+3. To ignore MbedTLS sample programs, tests and 3rdparty files, create .cyignore file in root directory of project and add following lines:
     ```make
     $(SEARCH_mbedtls)/3rdparty
     $(SEARCH_mbedtls)/programs
+    $(SEARCH_mbedtls)/tests
     ```
 4. To configure mbedTLS and to use alt implementation, follow instructions provided from section 5 of **[How to use mbedTLS library with accelerated ALT implementations without using ModusToolbox](#how-to-use-mbedtls-library-with-accelerated-alt-implementations-without-using-modustoolbox)**.
 
-### How to use mbedTLS library with or without mtb-hal-cat1 in ModusToolbox 2.x
+### How to use mbedTLS library with or without mtb-hal-cat1 in ModusToolbox 2.x ( applicable for CAT1A MCUs only )
 The [cy-mbedtls-acceleration][cy-mbedtls-acceleration] package requires concurrent access from two CPUs to the CRYPTO hardware.
 The acceleration package has its own internal resource management to control concurrent access.
 Or you can use the Hardware Abstraction Layer (HAL).
@@ -137,7 +138,7 @@ or in the main Makefile (for example):
 DEFINES+=MBEDTLS_CONFIG_FILE="<mbedtls-config.h>" CY_CRYPTO_HAL_DISABLE
 ```
 
-### How to use hardware entropy in CAT1A & CAT1C MCUs
+### How to use hardware entropy ( not applicable for CAT1B MCUs )
 To enable hardware entropy perform these steps:
 
 1. Add the **MBEDTLS_ENTROPY_HARDWARE_ALT** macro definition to the configuration file (***mbedtls-config.h***):
@@ -153,7 +154,7 @@ To enable hardware entropy perform these steps:
     #include "crypto_common.h"
     #include "cy_crypto_core_trng.h"
 
-    /* Initialization polynomial values from True Random Generator */
+    /* Initialization polynomial values fro True Random Generator */
     #define GARO31_INITSTATE          (0x04c11db7u)
     #define FIRO31_INITSTATE          (0x04c11db7u)
 
@@ -164,7 +165,7 @@ To enable hardware entropy perform these steps:
         int ret = 0;
         *olen = 0;
 
-        cy_hw_crypto_t crypto_obj;
+        cy_cmgr_crypto_hw_t crypto_obj = CY_CMGR_CRYPTO_OBJ_INIT;
 
         /* temporary random data buffer */
         uint32_t random;
@@ -189,7 +190,7 @@ To enable hardware entropy perform these steps:
         }
         random = 0uL;
 
-        /* Release the crypto hardware */
+        /* Realease the crypto hardware */
         cy_hw_crypto_release(&crypto_obj);
 
         return (ret);
@@ -200,7 +201,7 @@ To enable hardware entropy perform these steps:
 
 ### Hardware accelerated MbedTLS code example
 
-This code example demonstrates MbedTLS hardware acceleration capabilities using the cryptographic hardware block of CAT1A, CAT1B and CAT1C MCUs. It uses SHA - 256 algorithm.
+This code example demonstrates MbedTLS hardware acceleration capabilities using the cryptographic hardware block of CAT1A / CAT1B / CAT1C MCU. It uses SHA-256 algorithm.
 
 _**Note:** To enable the standard input output over UART communication, you can create `Hello_World` project from ModusToolbox or clone from [mtb-example-psoc6-hello-world](https://github.com/Infineon/mtb-example-psoc6-hello-world)_
 
@@ -266,12 +267,12 @@ int main(void)
       * CBC,
       * CFB,
       * CTR,
-      * XTS.
+      * XTS,
       * GCM.
   - SHA:
       * SHA1,
-      * SHA2 - 256,
-      * SHA2 - 512.
+      * SHA2-256,
+      * SHA2-512.
   - ECP support for NIST P curves:
       * SECP192R1,
       * SECP224R1,
@@ -287,7 +288,7 @@ int main(void)
 + **Supported algorithms in CAT1B MCUs:**
 
   - SHA:
-      * SHA2 - 256
+      * SHA2-256,
 
 ### License
 This project is licensed under the [Apache 2.0 License][apache-licenses] - see the [LICENSE][LICENSE] file for details
@@ -303,7 +304,7 @@ This project is licensed under the [Apache 2.0 License][apache-licenses] - see t
 * [Cypress Semiconductor][cypress]
 
 ---
-© Cypress Semiconductor Corporation (an Infineon company), 2019-2023.
+© Cypress Semiconductor Corporation, 2019-2023.
 
 [cypress]: http://www.cypress.com
 [mbedTLS-lib]: https://github.com/ARMmbed/mbedtls

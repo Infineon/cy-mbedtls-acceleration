@@ -1,7 +1,7 @@
 /*
  *  ECDSA sign, verify and key generation functions
  *
- *  Copyright (C) 2019-2023 Cypress Semiconductor Corporation
+ *  Copyright (C) 2019-2024 Cypress Semiconductor Corporation
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -19,7 +19,7 @@
 
 /*
  * \file    ecdsa_alt_mxcrypto.c
- * \version 2.2.0
+ * \version 2.3.0
  *
  * \brief   This file provides an API for Elliptic Curves sign and verifications.
  *

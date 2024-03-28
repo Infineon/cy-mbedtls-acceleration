@@ -1,6 +1,6 @@
 /*
  * mbed Microcontroller Library
- * Copyright (c) 2019-2023 Cypress Semiconductor Corporation
+ * Copyright (c) 2019-2024 Cypress Semiconductor Corporation
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,7 @@
 
 /**
  * \file    crypto_common.c
- * \version 2.2.0
+ * \version 2.3.0
  *
  * \brief   Source file for common mbedtls acceleration functions
  *
@@ -41,17 +41,6 @@
                                                     return;     \
                                             } while( 0 )
 
-#if defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE)
-
-typedef cy_rslt_t cy_cmgr_rslt_t;
-
-#define CY_CMGR_RSLT_ERR_INUSE          CYHAL_HWMGR_RSLT_ERR_INUSE
-#define CY_CMGR_RSLT_SUCCESS            CY_RSLT_SUCCESS
-
-#define cy_cmgr_crypto_reserve(...)     cyhal_crypto_reserve(__VA_ARGS__)
-#define cy_cmgr_crypto_free(...)        cyhal_crypto_free(__VA_ARGS__)
-
-#else /* defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE) */
 
 typedef uint32_t cy_cmgr_rslt_t;
 
@@ -139,9 +128,6 @@ static void cy_cmgr_crypto_free(CRYPTO_Type* base, cy_cmgr_resource_inst_t *reso
         resource->type = CY_CMGR_RSC_INVALID;
     }
 }
-
-
-#endif /* defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE) */
 
 
 static bool cy_cmgr_crypto_is_reserved(cy_cmgr_crypto_hw_t *obj, cy_cmgr_feature_t feature)

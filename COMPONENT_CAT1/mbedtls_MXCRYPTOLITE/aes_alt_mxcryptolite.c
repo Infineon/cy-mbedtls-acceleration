@@ -19,7 +19,7 @@
  */
 
 /*
- * \file    aes_alt_mxcrypto.c
+ * \file    aes_alt_mxcryptolite.c
  * \version 2.3.0
  *
  * \brief   This file contains AES functions implementation.
@@ -32,7 +32,7 @@
 
 #include "cy_device.h"
 
-#if defined (CY_IP_MXCRYPTO)
+#if defined (CY_IP_MXCRYPTOLITE)
 
 #include "mbedtls/build_info.h"
 
@@ -57,16 +57,15 @@
 #define AES_VALIDATE( cond )        \
     MBEDTLS_INTERNAL_VALIDATE( cond )
 
-#include "crypto_common.h"
-#include "cy_crypto_core.h"
+#include "cy_cryptolite_common.h"
+
 
 void mbedtls_aes_init( mbedtls_aes_context *ctx )
 {
     AES_VALIDATE( ctx != NULL );
 
-    cy_hw_zeroize(ctx, sizeof( mbedtls_aes_context ) );
+    mbedtls_memset(ctx, 0, sizeof( mbedtls_aes_context ) );
 
-    (void)cy_hw_crypto_reserve((cy_cmgr_crypto_hw_t *)ctx, CY_CMGR_CRYPTO_COMMON);
 }
 
 void mbedtls_aes_free( mbedtls_aes_context *ctx )
@@ -75,11 +74,9 @@ void mbedtls_aes_free( mbedtls_aes_context *ctx )
         return;
 
     if (ctx->aes_state.buffers != NULL) {
-        Cy_Crypto_Core_Aes_Free(ctx->obj.base, &ctx->aes_state);
+        Cy_Cryptolite_Aes_Free(CRYPTOLITE, &ctx->aes_state);
     }
-    cy_hw_crypto_release((cy_cmgr_crypto_hw_t *)ctx);
-
-    cy_hw_zeroize(ctx, sizeof( mbedtls_aes_context ) );
+    mbedtls_memset(ctx, 0,  sizeof( mbedtls_aes_context ) );
 }
 
 #if defined(MBEDTLS_CIPHER_MODE_XTS)
@@ -109,8 +106,7 @@ static int aes_set_keys( mbedtls_aes_context *ctx, const unsigned char *key,
                     unsigned int keybits )
 {
     int ret = 0;
-    cy_en_crypto_aes_key_length_t key_length;
-    cy_en_crypto_status_t status;
+    cy_en_cryptolite_status_t status;
 
     AES_VALIDATE_RET( ctx != NULL );
     AES_VALIDATE_RET( key != NULL );
@@ -118,15 +114,13 @@ static int aes_set_keys( mbedtls_aes_context *ctx, const unsigned char *key,
 
     switch( keybits )
     {
-        case 128: key_length = CY_CRYPTO_KEY_AES_128; break;
-        case 192: key_length = CY_CRYPTO_KEY_AES_192; break;
-        case 256: key_length = CY_CRYPTO_KEY_AES_256; break;
-        default : return( MBEDTLS_ERR_AES_INVALID_KEY_LENGTH );
+        case 128:  break;
+        default : return( MBEDTLS_ERR_PLATFORM_FEATURE_UNSUPPORTED );
     }
 
-    status = Cy_Crypto_Core_Aes_InitContext(ctx->obj.base, key, key_length, &ctx->aes_state, &ctx->aes_buffers);
+    status = Cy_Cryptolite_Aes_Init(CRYPTOLITE, key, &ctx->aes_state, &ctx->aes_buffers);
 
-    if (CY_CRYPTO_SUCCESS != status)
+    if (CY_CRYPTOLITE_SUCCESS != status)
     {
         ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
     }
@@ -172,7 +166,6 @@ static int mbedtls_aes_xts_decode_keys( const unsigned char *key,
     switch( keybits )
     {
         case 256: break;
-        case 512: break;
         default : return( MBEDTLS_ERR_AES_INVALID_KEY_LENGTH );
     }
 
@@ -243,14 +236,14 @@ int mbedtls_internal_aes_encrypt( mbedtls_aes_context *ctx,
                                   unsigned char output[16] )
 {
     int ret = 0;
-    cy_en_crypto_status_t status;
+    cy_en_cryptolite_status_t status;
 
     AES_VALIDATE_RET( ctx != NULL );
     AES_VALIDATE_RET( ctx->aes_state.buffers != NULL );
 
-    status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_ENCRYPT, output, input, &ctx->aes_state);
+    status = Cy_Cryptolite_Aes_Ecb(CRYPTOLITE, output, input, &ctx->aes_state);
 
-    if (CY_CRYPTO_SUCCESS != status)
+    if (CY_CRYPTOLITE_SUCCESS != status)
     {
         ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
     }
@@ -274,20 +267,11 @@ int mbedtls_internal_aes_decrypt( mbedtls_aes_context *ctx,
                                   const unsigned char input[16],
                                   unsigned char output[16] )
 {
-    int ret = 0;
-    cy_en_crypto_status_t status;
+    (void)ctx;
+    (void)input;
+    (void)output;
 
-    AES_VALIDATE_RET( ctx != NULL );
-    AES_VALIDATE_RET( ctx->aes_state.buffers != NULL );
-
-    status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_DECRYPT, output, input, &ctx->aes_state);
-
-    if (CY_CRYPTO_SUCCESS != status)
-    {
-        ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
-    }
-
-    return( ret );
+    return MBEDTLS_ERR_PLATFORM_FEATURE_UNSUPPORTED;
 }
 
 #if !defined(MBEDTLS_DEPRECATED_REMOVED)
@@ -328,57 +312,43 @@ int mbedtls_aes_crypt_cbc( mbedtls_aes_context *ctx,
                     const unsigned char *input,
                     unsigned char *output )
 {
-    unsigned char temp[CY_CRYPTO_AES_BLOCK_SIZE];
-
     int ret = 0;
-    cy_en_crypto_status_t status;
+    int i=0;
+    cy_en_cryptolite_status_t status;
 
     AES_VALIDATE_RET( ctx != NULL );
     AES_VALIDATE_RET( iv != NULL );
     AES_VALIDATE_RET( input != NULL );
     AES_VALIDATE_RET( output != NULL );
 
-    if( length % CY_CRYPTO_AES_BLOCK_SIZE )
+    if( length % CY_CRYPTOLITE_AES_BLOCK_SIZE )
         return( MBEDTLS_ERR_AES_INVALID_INPUT_LENGTH );
 
     AES_VALIDATE_RET( ctx->aes_state.buffers != NULL);
 
     if( mode == MBEDTLS_AES_DECRYPT )
     {
-        while(( length > 0 ) && (ret == 0))
-        {
-            Cy_Crypto_Core_MemCpy(ctx->obj.base, temp, input, CY_CRYPTO_AES_BLOCK_SIZE);
-
-            status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_DECRYPT, output, input, &ctx->aes_state);
-
-            Cy_Crypto_Core_MemXor(ctx->obj.base, output, output, iv, CY_CRYPTO_AES_BLOCK_SIZE);
-            Cy_Crypto_Core_MemCpy(ctx->obj.base, iv, temp, CY_CRYPTO_AES_BLOCK_SIZE);
-
-            input  += CY_CRYPTO_AES_BLOCK_SIZE;
-            output += CY_CRYPTO_AES_BLOCK_SIZE;
-            length -= CY_CRYPTO_AES_BLOCK_SIZE;
-
-            if (CY_CRYPTO_SUCCESS != status)
-            {
-                ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
-            }
-        }
+        return MBEDTLS_ERR_PLATFORM_FEATURE_UNSUPPORTED;
     }
     else
     {
         while(( length > 0 ) && (ret == 0))
         {
-            Cy_Crypto_Core_MemXor(ctx->obj.base, output, input, iv, CY_CRYPTO_AES_BLOCK_SIZE);
+            for( i = 0; i < 16; i++ )
+            {
+                output[i] = (unsigned char)( input[i] ^ iv[i] );
+            }
+            
 
-            status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_ENCRYPT, output, output, &ctx->aes_state);
+            status = Cy_Cryptolite_Aes_Ecb(CRYPTOLITE, output, output, &ctx->aes_state);
 
-            Cy_Crypto_Core_MemCpy(ctx->obj.base, iv, output, CY_CRYPTO_AES_BLOCK_SIZE);
+            mbedtls_memcpy(iv, output, CY_CRYPTOLITE_AES_BLOCK_SIZE);
 
-            input  += CY_CRYPTO_AES_BLOCK_SIZE;
-            output += CY_CRYPTO_AES_BLOCK_SIZE;
-            length -= CY_CRYPTO_AES_BLOCK_SIZE;
+            input  += CY_CRYPTOLITE_AES_BLOCK_SIZE;
+            output += CY_CRYPTOLITE_AES_BLOCK_SIZE;
+            length -= CY_CRYPTOLITE_AES_BLOCK_SIZE;
 
-            if (CY_CRYPTO_SUCCESS != status)
+            if (CY_CRYPTOLITE_SUCCESS != status)
             {
                 ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
             }
@@ -739,4 +709,4 @@ int mbedtls_aes_crypt_ctr( mbedtls_aes_context *ctx,
 
 #endif /* MBEDTLS_AES_C */
 
-#endif /* CY_IP_MXCRYPTO */
+#endif /* CY_IP_MXCRYPTOLITE */

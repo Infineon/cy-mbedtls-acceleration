@@ -1,8 +1,8 @@
 /*
  *  Elliptic curve Diffie-Hellman
  *
- *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  SPDX-License-Identifier: Apache-2.0
+ *  Copyright (C) 2019-2024 Cypress Semiconductor Corporation
+ *
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
  *  not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 
 /*
  * \file    ecdh_alt_mxcrypto.c
- * \version 2.2.0
+ * \version 2.3.0
  *
  * \brief   This file provides an API for ECDH algorithm acceleration.
  *

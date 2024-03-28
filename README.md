@@ -19,10 +19,9 @@ mbedTLS provides a software-only implementation of basic crypto algorithms. The 
 
 ### cy-mbedtls-acceleration
 This repo is implemented as an extension of mbedTLS to add CAT1A, CAT1B and CAT1C MCUs hardware acceleration for the basic crypto algorithms.
-It requires these other products:
+It requires :
 
 - [mtb-pdl-cat1][mtb-pdl-cat1] - PDL driver library
-- [mtb-hal-cat1][mtb-hal-cat1] - HAL layer for Cypress MCUs
 
 mbedTLS library provides a standardized method to extend the implementation by defining special macros.
 
@@ -59,6 +58,7 @@ To use the mbedTLS library with CAT1A, CAT1B and CAT1C hardware acceleration, pe
 
 	/* Currently this target supports SHA1 & SHA256 */
 	#define MBEDTLS_SHA1_C
+    #define MBEDTLS_SHA224_C
     #define MBEDTLS_SHA256_C
 
 	#define MBEDTLS_SHA1_ALT
@@ -111,92 +111,16 @@ To use the mbedTLS library using ModusToolbox, perform following steps:
     ```make
     $(SEARCH_mbedtls)/3rdparty
     $(SEARCH_mbedtls)/programs
+    $(SEARCH_mbedtls)/tests
     ```
 4. To configure mbedTLS and to use alt implementation, follow instructions provided from section 5 of **[How to use mbedTLS library with accelerated ALT implementations without using ModusToolbox](#how-to-use-mbedtls-library-with-accelerated-alt-implementations-without-using-modustoolbox)**.
 
-### How to use mbedTLS library with or without mtb-hal-cat1 in ModusToolbox 2.x
-The [cy-mbedtls-acceleration][cy-mbedtls-acceleration] package requires concurrent access from two CPUs to the CRYPTO hardware.
-The acceleration package has its own internal resource management to control concurrent access.
-Or you can use the Hardware Abstraction Layer (HAL).
 
-By default ModusToolbox uses [mtb-hal-cat1][mtb-hal-cat1] for access to all hardware resources including CRYPTO hardware.
-It defines macro **CY_USING_HAL**. In this case the [cy-mbedtls-acceleration][cy-mbedtls-acceleration] library uses [mtb-hal-cat1][mtb-hal-cat1]
-instead of own internal resource management.
-
-To use the acceleration package internal resource management instead of [mtb-hal-cat1][mtb-hal-cat1], disable the CRYPTO HAL. The project defines macro **CY_CRYPTO_HAL_DISABLE**.
-
-_**Note:** that not disables the HAL completely, so the application still use HAL for other hardware resources as usually._
-
-Define the macro in the project's configuration files (for example)
-```c++
-#define CY_CRYPTO_HAL_DISABLE
-```
-or in the main Makefile (for example):
-```make
-# Add additional defines to the build process (without a leading -D).
-DEFINES+=MBEDTLS_CONFIG_FILE="<mbedtls-config.h>" CY_CRYPTO_HAL_DISABLE
-```
-
-### How to use hardware entropy in CAT1A & CAT1C MCUs
+### How to use hardware entropy in CAT1A, CAT1B & CAT1C MCUs
 To enable hardware entropy perform these steps:
 
-1. Add the **MBEDTLS_ENTROPY_HARDWARE_ALT** macro definition to the configuration file (***mbedtls-config.h***):
-    ```c++
-    #define MBEDTLS_ENTROPY_HARDWARE_ALT
-    ```
-1. Implement **mbedtls_hardware_poll** function, as example:
-    ```c++
-    #if defined(MBEDTLS_ENTROPY_HARDWARE_ALT)
-
-    #include "mbedtls/entropy.h"
-
-    #include "crypto_common.h"
-    #include "cy_crypto_core_trng.h"
-
-    /* Initialization polynomial values from True Random Generator */
-    #define GARO31_INITSTATE          (0x04c11db7u)
-    #define FIRO31_INITSTATE          (0x04c11db7u)
-
-    #define MAX_TRNG_BIT_SIZE         (32UL)
-
-    int mbedtls_hardware_poll( void * data, unsigned char * output, size_t len, size_t * olen )
-    {
-        int ret = 0;
-        *olen = 0;
-
-        cy_hw_crypto_t crypto_obj;
-
-        /* temporary random data buffer */
-        uint32_t random;
-
-        (void)data;
-
-        /* Reserve the crypto hardware for the operation */
-        cy_hw_crypto_reserve(&crypto_obj, CY_CMGR_CRYPTO_TRNG);
-
-        /* Get Random byte */
-        while ((*olen < len) && (ret == 0)) {
-            if (Cy_Crypto_Core_Trng(CRYPTO, GARO31_INITSTATE, FIRO31_INITSTATE, MAX_TRNG_BIT_SIZE, &random) != CY_CRYPTO_SUCCESS)
-            {
-                ret = MBEDTLS_ERR_ENTROPY_SOURCE_FAILED;
-            } else {
-                for (uint8_t i = 0; (i < 4) && (*olen < len) ; i++)
-                {
-                    *output++ = ((uint8_t *)&random)[i];
-                    *olen += 1;
-                }
-            }
-        }
-        random = 0uL;
-
-        /* Release the crypto hardware */
-        cy_hw_crypto_release(&crypto_obj);
-
-        return (ret);
-    }
-
-    #endif /* MBEDTLS_ENTROPY_HARDWARE_ALT */
-    ```
+  Add the **MBEDTLS_ENTROPY_HARDWARE_ALT** macro definition to the configuration file (***mbedtls-config.h***):
+    ```#define MBEDTLS_ENTROPY_HARDWARE_ALT```
 
 ### Hardware accelerated MbedTLS code example
 
@@ -288,7 +212,14 @@ int main(void)
 
   - SHA:
       * SHA2 - 256
-
+  - ECDSA support for NIST P curves :
+      * verify for Curve SECP256R1 & SECP384R1
+    - AES:
+      * ECB: 128 bit Encryption,
+      * CBC: 128 bit Encryption,
+      * CFB: 128 bit Encryption & Decryption,
+      * CTR: 128 bit Encryption & Decryption.
+  
 ### License
 This project is licensed under the [Apache 2.0 License][apache-licenses] - see the [LICENSE][LICENSE] file for details
 

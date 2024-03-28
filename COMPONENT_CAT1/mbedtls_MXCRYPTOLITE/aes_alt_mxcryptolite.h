@@ -1,7 +1,6 @@
 /*
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (c) (2019-2024), Cypress Semiconductor Corporation (an Infineon company) or
- *  an affiliate of Cypress Semiconductor Corporation.
+ *  Copyright (C) (2019-2024) Cypress Semiconductor Corporation
  *  SPDX-License-Identifier: Apache-2.0
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -18,7 +17,7 @@
  */
 
 /**
- * \file    aes_alt_mxcrypto.h
+ * \file    aes_alt_mxcryptolite.h
  * \version 1.6
  *
  * \brief   This file contains AES definitions and functions.
@@ -42,30 +41,33 @@
 
 #include "cy_device.h"
 
-#if defined (CY_IP_MXCRYPTO)
+#if defined (CY_IP_MXCRYPTOLITE)
 
 #ifndef AES_ALT_H
 #define AES_ALT_H
 
+#if !defined(MBEDTLS_CONFIG_FILE)
+#include "mbedtls/config.h"
+#else
+#include MBEDTLS_CONFIG_FILE
+#endif
+
+
 #if defined(MBEDTLS_AES_ALT)
-// Regular implementation
 
-#define CY_CIPHER_MODE_CBC_ALT
+#include "cy_cryptolite_common.h"
+#include "cy_cryptolite.h"
+#include "cryptolite_common.h"
 
-#include <cy_crypto_common.h>
-#include <cy_crypto_core_aes.h>
-#include "cy_syslib.h"
 
-#include "crypto_common.h"
 
 /**
  * \brief The AES context-type definition.
  */
 typedef struct mbedtls_aes_context
 {
-    cy_cmgr_crypto_hw_t obj;
-    cy_stc_crypto_aes_state_t aes_state;
-    cy_stc_crypto_aes_buffers_t aes_buffers;
+    cy_stc_cryptolite_aes_state_t aes_state;
+    cy_stc_cryptolite_aes_buffers_t aes_buffers;
 }
 mbedtls_aes_context;
 
@@ -88,4 +90,4 @@ typedef struct mbedtls_aes_xts_context
 
 #endif /* aes_alt.h */
 
-#endif /* CY_IP_MXCRYPTO */
+#endif /* CY_IP_MXCRYPTOLITE */

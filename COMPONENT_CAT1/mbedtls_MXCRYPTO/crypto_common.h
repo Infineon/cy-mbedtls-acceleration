@@ -1,7 +1,7 @@
 
 /*
  * mbed Microcontroller Library
- * Copyright (c) (2019-2023), Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright (c) (2019-2024), Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -20,7 +20,7 @@
 
 /**
  * \file    crypto_common.h
- * \version 1.5
+ * \version 1.6
  *
  * \brief   Header file for common mbedtls acceleration functions
  *
@@ -65,29 +65,6 @@
 
 #include "cy_crypto_core.h"
 
-#if defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE)
-
-#include "cyhal_crypto_common.h"
-
-typedef cyhal_crypto_feature_t cy_cmgr_feature_t;
-typedef cyhal_resource_t       cy_cmgr_resource_t;
-typedef cyhal_resource_inst_t  cy_cmgr_resource_inst_t;
-
-/** CRC hardware acceleration */
-#define CY_CMGR_CRYPTO_CRC       CYHAL_CRYPTO_CRC
-/** TRNG hardware acceleration */
-#define CY_CMGR_CRYPTO_TRNG      CYHAL_CRYPTO_TRNG
-/** VU hardware acceleration */
-#define CY_CMGR_CRYPTO_VU        CYHAL_CRYPTO_VU
-/** Common features of the Crypto block  */
-#define CY_CMGR_CRYPTO_COMMON    CYHAL_CRYPTO_COMMON
-
-#define CY_CMGR_RSC_CRYPTO       CYHAL_RSC_CRYPTO
-#define CY_CMGR_RSC_INVALID      CYHAL_RSC_INVALID
-
-#define CY_CMGR_RESOURCE_INIT  {CY_CMGR_RSC_INVALID, 0U, 0U}
-
-#else /* defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE) */
 
 typedef enum
 {
@@ -122,7 +99,6 @@ typedef struct
 
 #define CY_CMGR_RESOURCE_INIT  {CY_CMGR_RSC_INVALID, 0U}
 
-#endif /* defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE) */
 
 /** CRYPTO object */
 typedef struct {

@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2006-2015, ARM Limited, All Rights Reserved
- *  Copyright (c) (2019-2023), Cypress Semiconductor Corporation (an Infineon company) or
+ *  Copyright (c) (2019-2024), Cypress Semiconductor Corporation (an Infineon company) or
  *  an affiliate of Cypress Semiconductor Corporation.
  *  SPDX-License-Identifier: Apache-2.0
  *
@@ -19,7 +19,7 @@
 
 /**
  * \file    aes_alt.h
- * \version 1.5
+ * \version 1.6
  *
  * \brief   This file contains AES definitions and functions.
  *
@@ -44,6 +44,8 @@
 
 #if defined (CY_IP_MXCRYPTO)
     #include "aes_alt_mxcrypto.h"
+#elif defined (CY_IP_MXCRYPTOLITE)
+    #include "aes_alt_mxcryptolite.h"
 #else
     #error mbedTLS ALT for AES is not supported
 #endif /* CY_IP_MXCRYPTO */

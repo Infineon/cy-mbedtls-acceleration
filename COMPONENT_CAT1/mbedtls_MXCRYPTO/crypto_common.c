@@ -1,6 +1,6 @@
 /*
  * mbed Microcontroller Library
- * Copyright (c) (2019-2023), Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright (c) (2019-2024), Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -19,7 +19,7 @@
 
 /**
  * \file    crypto_common.c
- * \version 1.5
+ * \version 1.6
  *
  * \brief   Source file for common mbedtls acceleration functions
  *
@@ -39,17 +39,6 @@
                                                     return;     \
                                             } while( 0 )
 
-#if defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE)
-
-typedef cy_rslt_t cy_cmgr_rslt_t;
-
-#define CY_CMGR_RSLT_ERR_INUSE          CYHAL_HWMGR_RSLT_ERR_INUSE
-#define CY_CMGR_RSLT_SUCCESS            CY_RSLT_SUCCESS
-
-#define cy_cmgr_crypto_reserve(...)     cyhal_crypto_reserve(__VA_ARGS__)
-#define cy_cmgr_crypto_free(...)        cyhal_crypto_free(__VA_ARGS__)
-
-#else /* defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE) */
 
 typedef uint32_t cy_cmgr_rslt_t;
 
@@ -147,7 +136,6 @@ static bool cy_cmgr_crypto_is_reserved(cy_cmgr_crypto_hw_t *obj, cy_cmgr_feature
 
     return status;
 }
-#endif /* defined(CY_USING_HAL) && !defined(CY_CRYPTO_HAL_DISABLE) */
 
 /*******************************************************************************
 *       Crypto object manage functions
@@ -157,9 +145,7 @@ bool cy_hw_crypto_reserve(cy_cmgr_crypto_hw_t *obj, cy_cmgr_feature_t feature)
     cy_cmgr_rslt_t status = CY_CMGR_RSLT_SUCCESS;
     CY_ASSERT( obj != NULL );
 
-    #if !defined(CY_USING_HAL) || defined(CY_CRYPTO_HAL_DISABLE)
     if (!cy_cmgr_crypto_is_reserved((cy_cmgr_crypto_hw_t *)obj, feature))
-    #endif /* !defined(CY_USING_HAL) || defined(CY_CRYPTO_HAL_DISABLE) */
     {
         status = cy_cmgr_crypto_reserve(&(obj->base), &(obj->resource), feature);
         if (CY_CMGR_RSLT_SUCCESS == status)

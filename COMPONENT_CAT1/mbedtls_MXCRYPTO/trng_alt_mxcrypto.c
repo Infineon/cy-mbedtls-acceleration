@@ -30,7 +30,7 @@
 #include "cy_device.h"
 #include "cy_syslib.h"
 
-#if CY_CPU_CORTEX_M0P || ((CY_CPU_CORTEX_M7 || CY_CPU_CORTEX_M4 || CY_CPU_CORTEX_M33) && !defined(CY_DEVICE_SECURE))
+#if CY_CPU_CORTEX_M0P || ((CY_CPU_CORTEX_M7 || CY_CPU_CORTEX_M4 || CY_CPU_CORTEX_M33 || CY_CPU_CORTEX_M55) && !defined(CY_DEVICE_SECURE))
 #if defined (CY_IP_MXCRYPTO)
 
 #include "mbedtls/build_info.h"
@@ -160,5 +160,5 @@ int mbedtls_hardware_poll( void * data,
 #endif /* MBEDTLS_ENTROPY_HARDWARE_ALT */
 #endif /* MBEDTLS_ENTROPY_C */
 #endif /* CY_IP_MXCRYPTO */
-#endif /* CY_CPU_CORTEX_M0P || ((CY_CPU_CORTEX_M7 || CY_CPU_CORTEX_M4 || CY_CPU_CORTEX_M33) && !defined(CY_DEVICE_SECURE))
+#endif /* CY_CPU_CORTEX_M0P || ((CY_CPU_CORTEX_M7 || CY_CPU_CORTEX_M4 || CY_CPU_CORTEX_M33 || CY_CPU_CORTEX_M55) && !defined(CY_DEVICE_SECURE))
 */

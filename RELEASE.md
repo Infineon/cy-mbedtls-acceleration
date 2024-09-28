@@ -1,11 +1,11 @@
-# mbedTLS Crypto acceleration for CAT1A, CAT1B & CAT1C MCUs
+# mbedTLS Crypto acceleration for CAT1A, CAT1B & CAT1C MCUs v2.4.0
 
 ### What's Included?
 Please refer to the [README.md](./README.md) for a complete description of the CAT1A, CAT1B & CAT1C acceleration for mbedTLS library.
+
 New in this release:
 
-* Added AES & ECDSA Verify acceleration for CAT1B MCU.
-* Added Hardware Entropy acceleration for CAT1A, CAT1B & CAT1C MCUs.
+* Added EDDSA Hardware acceleration for CAT1A and CAT1C MCUs.
 
 ### Limitations
 Currently Cypress CAT1A & CAT1C acceleration doesn't support:
@@ -30,7 +30,7 @@ This version of the CAT1A, CAT1B & CAT1C acceleration for mbedTLS library was va
 | Software and Tools                                      | Version   |
 | :---                                                    | :-------: |
 | ModusToolbox Software Environment                       | 3.2       |
-| mtb-pdl-cat1  Peripheral Driver Library (PDL)           | 3.10.0    |
+| mtb-pdl-cat1  Peripheral Driver Library (PDL)           | 3.12.0    |
 | GCC Compiler                                            | 11.3.1    |
 | IAR Compiler                                            | 9.40.2    |
 | ARM Compiler 6                                          | 6.16      |
@@ -46,6 +46,7 @@ This version of the CAT1A, CAT1B & CAT1C acceleration for mbedTLS library was va
 
 | Version |	Changes                                             | Reason for Change |
 | :----:  |	:---                                                | :----             |
+| 2.4.0   |	Added EDDSA Hardware  acceleration for CAT1A and CAT1C MCUs.|	 New alt driver added  |
 | 2.3.0   |	Added AES & ECDSA Verify acceleration for CAT1B MCU. Added Hardware Entropy acceleration for CAT1A, CAT1B & CAT1C MCUs.|	 New alt driver added  |
 | 2.2.0   |	Added Crypto HAL resource allocation check|	 Avoid extra resource allocation |
 | 2.1.1   |	Fixed sha1 finish api signature|	 Compilation warning  |

@@ -19,7 +19,7 @@ mbedTLS provides a software-only implementation of basic crypto algorithms. The 
 
 ### cy-mbedtls-acceleration
 This repo is implemented as an extension of mbedTLS to add CAT1A, CAT1B & CAT1C MCUs hardware acceleration for the basic crypto algorithms.
-It requires :
+It requires:
 
 - [mtb-pdl-cat1][mtb-pdl-cat1] - PDL driver library
 
@@ -206,8 +206,17 @@ int main(void)
   - ECDSA support for NIST P curves:
       * sign,
       * verify
+  - EDDSA support for 25519 curve:
+      * sign,
+      * verify
 
-+ **Supported algorithms in CAT1B MCUs:**
++ **Note for using EDDSA 25519 algorithms in CAT1A and CAT1C MCUs:**
+
+    EDDSA 25519 support is not yet officially released as a part of mbedTLS Library, The mbedTLS proposed API for future release is implemented as
+    hardware accelerated ALT driver. User should include header file "eddsa_alt.h", define MBEDTLS_EDDSA_ALT macro in mbedtls config header file
+    and use MBEDTLS_ECP_DP_ED25519 as curve type to use the EDDSA feature. 
+   
+**Supported algorithms in CAT1B MCUs:**
 
   - SHA:
       * SHA2-256,

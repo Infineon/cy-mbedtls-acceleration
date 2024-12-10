@@ -57,6 +57,7 @@ extern "C" {
 
 /* ED25519 Group ID */
 #define MBEDTLS_ECP_DP_ED25519 (14u)
+
 /*
  * mbed TLS eddsa implementation. There is no official eddsa support from the mbedTLS public library yet
  * and it is still work in progress.This iplementation follows the same interface signatures as proposed by mbedTLS

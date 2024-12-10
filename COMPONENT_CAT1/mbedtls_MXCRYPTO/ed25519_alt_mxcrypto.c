@@ -47,6 +47,7 @@
 #include "cy_crypto_core_vu.h"
 #include "crypto_common.h"
 
+
 #include "eddsa_alt.h"
 #include <string.h>
 
@@ -73,6 +74,7 @@ int mbedtls_eddsa_sign( mbedtls_ecp_group *grp,
     uint8_t *sig = NULL;
     (void)p_rng;
     (void)f_rng;
+
     cy_cmgr_crypto_hw_t crypto_obj = CY_CMGR_CRYPTO_OBJ_INIT;
     cy_stc_crypto_ecc_key key;
     cy_stc_crypto_edw_dp_type edwDp_t;

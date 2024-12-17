@@ -46,6 +46,11 @@
 
 #include "crypto_common.h"
 
+#define AES_GCM_DCACHE_BUFFER_SIZE (64)  /* CY_AES_BLOCK_SIZE + 16 + 32 required for 32 byte alignment*/
+
+#define AES_GCM_MEM_ALLOC_FAILED       -0x0015 /* Memory allocation failed. */
+
+
 /**
  * \brief The AES context-type definition.
  */
@@ -54,6 +59,12 @@ typedef struct mbedtls_gcm_context
     cy_cmgr_crypto_hw_t MBEDTLS_PRIVATE(obj);
     cy_stc_crypto_aes_gcm_state_t MBEDTLS_PRIVATE(aes_state);
     cy_stc_crypto_aes_gcm_buffers_t MBEDTLS_PRIVATE(aes_buffers);
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    uint8_t input_array[AES_GCM_DCACHE_BUFFER_SIZE];
+    uint8_t output_array[AES_GCM_DCACHE_BUFFER_SIZE];
+    uint8_t* input_array_ptr;
+    uint8_t* output_array_ptr;
+#endif
 }
 mbedtls_gcm_context;
 

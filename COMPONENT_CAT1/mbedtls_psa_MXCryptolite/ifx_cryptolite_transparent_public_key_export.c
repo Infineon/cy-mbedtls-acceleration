@@ -415,6 +415,11 @@ psa_status_t ifx_cryptolite_transparent_export_public_key(
     size_t *data_length )
 {
     psa_key_type_t key_type = psa_get_key_type(attributes);
+    
+    if(PSA_KEY_TYPE_ECC_GET_FAMILY(key_type) != PSA_ECC_FAMILY_SECP_R1)
+    {
+        return PSA_ERROR_NOT_SUPPORTED;
+    }
 
     if((NULL == attributes) || ((NULL == key_buffer) && (key_buffer_size > 0))  || ((NULL == data) && (data_size > 0)) || (NULL == data_length))
     {

@@ -245,7 +245,7 @@ static psa_status_t ifx_cryptolite_transparent_ecdsa_sign(const psa_key_attribut
         CY_ALIGN(4) static uint8_t private_key[IFX_CRYPTOLITE_ECC_MAX_PRIV_KEY_SIZE];
         CY_ALIGN(4) static uint8_t signature_buf[IFX_CRYPTOLITE_ECC_MAX_PUB_KEY_SIZE];
         CY_ALIGN(4) static uint8_t msg_key[IFX_CRYPTOLITE_ECC_MAX_PRIV_KEY_SIZE];
-        CY_ALIGN(4) static uint8_t hash_buf[CY_CRYPTOLITE_SHA256_HASH_SIZE];
+        CY_ALIGN(4) static uint8_t hash_buf[IFX_PSA_CRYPTOLITE_MAX_SHA_HASH_SIZE];
         static cy_stc_cryptolite_ecc_buffer_t key_buf;
         sig_ptr = signature_buf;
         pkey_ptr = private_key;
@@ -256,7 +256,7 @@ static psa_status_t ifx_cryptolite_transparent_ecdsa_sign(const psa_key_attribut
         CY_ALIGN(4) uint8_t private_key[IFX_CRYPTOLITE_ECC_MAX_PRIV_KEY_SIZE];
         CY_ALIGN(4) uint8_t signature_buf[IFX_CRYPTOLITE_ECC_MAX_PUB_KEY_SIZE];
         CY_ALIGN(4) uint8_t msg_key[IFX_CRYPTOLITE_ECC_MAX_PRIV_KEY_SIZE];
-        CY_ALIGN(4) uint8_t hash_buf[CY_CRYPTOLITE_SHA256_HASH_SIZE];
+        CY_ALIGN(4) uint8_t hash_buf[IFX_PSA_CRYPTOLITE_MAX_SHA_HASH_SIZE];
         cy_stc_cryptolite_ecc_buffer_t key_buf;
         sig_ptr = signature_buf;
         pkey_ptr = private_key;
@@ -268,7 +268,7 @@ static psa_status_t ifx_cryptolite_transparent_ecdsa_sign(const psa_key_attribut
         sig_ptr = (uint8_t*)(uint32_t *)ifx_mxcryptolite_malloc(2 * bytesize);
         pkey_ptr = (uint8_t*)(uint32_t *)ifx_mxcryptolite_malloc(bytesize);
         msgkey_ptr = (uint8_t*)(uint32_t *)ifx_mxcryptolite_malloc(bytesize);
-        hash_ptr = (uint8_t*)(uint32_t *)ifx_mxcryptolite_malloc(CY_CRYPTOLITE_SHA256_HASH_SIZE);
+        hash_ptr = (uint8_t*)(uint32_t *)ifx_mxcryptolite_malloc(IFX_PSA_CRYPTOLITE_MAX_SHA_HASH_SIZE);
         key_buf_ptr = (cy_stc_cryptolite_ecc_buffer_t *)ifx_mxcryptolite_malloc(sizeof(cy_stc_cryptolite_ecc_buffer_t));
 
     #endif
@@ -279,8 +279,8 @@ static psa_status_t ifx_cryptolite_transparent_ecdsa_sign(const psa_key_attribut
         Cy_Cryptolite_Vu_memcpy(pkey_ptr, key_buffer, bytesize);
         Cy_Cryptolite_InvertEndianness(pkey_ptr, bytesize);
 
-        Cy_Cryptolite_Vu_memcpy(hash_ptr, hash, CY_CRYPTOLITE_SHA256_HASH_SIZE);
-        Cy_Cryptolite_InvertEndianness(hash_ptr, CY_CRYPTOLITE_SHA256_HASH_SIZE);
+        Cy_Cryptolite_Vu_memcpy(hash_ptr, hash, IFX_PSA_CRYPTOLITE_MAX_SHA_HASH_SIZE);
+        Cy_Cryptolite_InvertEndianness(hash_ptr, IFX_PSA_CRYPTOLITE_MAX_SHA_HASH_SIZE);
 
         key.type = PK_PRIVATE;
         key.k = pkey_ptr;

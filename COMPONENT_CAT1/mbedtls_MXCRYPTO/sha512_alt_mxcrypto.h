@@ -32,6 +32,7 @@
 #if !defined(SHA512_ALT_H)
 #define SHA512_ALT_H
 
+#define SHA512_DCACHE_BUFFER_SIZE  (96)
 #include "crypto_common.h"
 
 #if defined(MBEDTLS_SHA512_ALT)
@@ -43,6 +44,10 @@ typedef struct mbedtls_sha512_context {
     cy_stc_crypto_v1_sha512_buffers_t MBEDTLS_PRIVATE(shaBuffers);  /* Structure used by CY Crypto Driver   */
     #else
     cy_stc_crypto_v2_sha512_buffers_t MBEDTLS_PRIVATE(shaBuffers);  /* Structure used by CY Crypto Driver   */
+    #endif
+    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    uint8_t output_array[SHA512_DCACHE_BUFFER_SIZE];
+    uint8_t* output_array_ptr;
     #endif
 }
 mbedtls_sha512_context;

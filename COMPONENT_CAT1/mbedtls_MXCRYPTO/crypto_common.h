@@ -60,6 +60,7 @@
 #include "cy_crypto_core.h"
 #include "mbedtls/private_access.h"
 
+#define DCACHE_LINE_ALIGNMENT_SIZE (32) // 32byte align
 
 typedef enum
 {

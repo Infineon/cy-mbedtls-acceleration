@@ -102,33 +102,30 @@ extern "C" {
  *                of these fields does not need to be supported.
  *                They do not need to be at the same offset in the structure.
  */
-typedef struct mbedtls_ecp_group
-{
-    mbedtls_ecp_group_id MBEDTLS_PRIVATE(id);    /*!< An internal group identifier. */
-    mbedtls_mpi MBEDTLS_PRIVATE(P);              /*!< The prime modulus of the base field. */
-    mbedtls_mpi MBEDTLS_PRIVATE(A);              /*!< For Short Weierstrass: \p A in the equation. For
+typedef struct mbedtls_ecp_group {
+    mbedtls_ecp_group_id id;    /*!< An internal group identifier. */
+    mbedtls_mpi P;              /*!< The prime modulus of the base field. */
+    mbedtls_mpi A;              /*!< For Short Weierstrass: \p A in the equation. For
                                      Montgomery curves: <code>(A + 2) / 4</code>. */
-    mbedtls_mpi MBEDTLS_PRIVATE(B);              /*!< For Short Weierstrass: \p B in the equation.
+    mbedtls_mpi B;              /*!< For Short Weierstrass: \p B in the equation.
                                      For Montgomery curves: unused. */
-    mbedtls_ecp_point MBEDTLS_PRIVATE(G);        /*!< The generator of the subgroup used. */
-    mbedtls_mpi MBEDTLS_PRIVATE(N);              /*!< The order of \p G. */
-    size_t MBEDTLS_PRIVATE(pbits);               /*!< The number of bits in \p P.*/
-    size_t MBEDTLS_PRIVATE(nbits);               /*!< For Short Weierstrass: The number of bits in \p P.
+    mbedtls_ecp_point G;        /*!< The generator of the subgroup used. */
+    mbedtls_mpi N;              /*!< The order of \p G. */
+    size_t pbits;               /*!< The number of bits in \p P.*/
+    size_t nbits;               /*!< For Short Weierstrass: The number of bits in \p P.
                                      For Montgomery curves: the number of bits in the
                                      private keys. */
     /* End of public fields */
 
     unsigned int MBEDTLS_PRIVATE(h);             /*!< \internal 1 if the constants are static. */
-    int (*MBEDTLS_PRIVATE(modp))(mbedtls_mpi *); /*!< The function for fast pseudo-reduction
-                                     mod \p P (see above).*/
-    int (*MBEDTLS_PRIVATE(t_pre))(mbedtls_ecp_point *, void *);  /*!< Unused. */
-    int (*MBEDTLS_PRIVATE(t_post))(mbedtls_ecp_point *, void *); /*!< Unused. */
+    int(*MBEDTLS_PRIVATE(modp))(mbedtls_mpi *);  /*!< The function for fast pseudo-reduction
+                                                    mod \p P (see above).*/
+    int(*MBEDTLS_PRIVATE(t_pre))(mbedtls_ecp_point *, void *);   /*!< Unused. */
+    int(*MBEDTLS_PRIVATE(t_post))(mbedtls_ecp_point *, void *);  /*!< Unused. */
     void *MBEDTLS_PRIVATE(t_data);               /*!< Unused. */
     mbedtls_ecp_point *MBEDTLS_PRIVATE(T);       /*!< Pre-computed points for ecp_mul_comb(). */
     size_t MBEDTLS_PRIVATE(T_size);              /*!< The number of dynamic allocated pre-computed points. */
-}
-mbedtls_ecp_group;
-
+}mbedtls_ecp_group;
 /**
  * \name SECTION: Module settings
  *

@@ -30,6 +30,7 @@
 #if defined (CY_IP_MXCRYPTO)
 
 #include "mbedtls/build_info.h"
+#include "mbedtls/error.h"
 
 #if defined(MBEDTLS_SHA1_C)
 
@@ -52,6 +53,10 @@ void mbedtls_sha1_init( mbedtls_sha1_context *ctx )
     SHA1_VALIDATE( ctx != NULL );
 
     cy_hw_sha_init(ctx, sizeof( mbedtls_sha1_context ));
+    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    ctx->output_array_ptr = (uint8_t*)((size_t)ctx->output_array + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)ctx->output_array & 0x1F)));
+    #endif
+    
 }
 
 void mbedtls_sha1_free( mbedtls_sha1_context *ctx )
@@ -93,6 +98,26 @@ int mbedtls_sha1_update( mbedtls_sha1_context *ctx,
     if (ilen == 0)
         return (0);
 
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)input, ilen) && ((size_t)input % DCACHE_LINE_ALIGNMENT_SIZE != 0 || ilen % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+    {
+    int ret;
+    uint8_t *input_data = (uint8_t *)malloc(ilen + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+    if (NULL == input_data)
+    {
+        return MBEDTLS_ERR_SHA1_BAD_INPUT_DATA;
+    }
+    uint8_t *aligned_input_data = (uint8_t*)((size_t)input_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)input_data & 0x1F)));
+
+    memcpy((void *)aligned_input_data, (void *)input, ilen);
+
+    ret = cy_hw_sha_update(&ctx->obj, &ctx->hashState, (uint8_t *)aligned_input_data, ilen);
+
+    free(input_data);
+
+    return ret;
+    }
+#endif
     return cy_hw_sha_update(&ctx->obj, &ctx->hashState, input, ilen);
 }
 
@@ -104,6 +129,17 @@ int mbedtls_sha1_finish( mbedtls_sha1_context *ctx, unsigned char output[20] )
     SHA1_VALIDATE_RET( ctx != NULL );
     SHA1_VALIDATE_RET( (unsigned char *)output != NULL );
 
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+   if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)output, 32) && ((size_t)output % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+    {
+   int ret;
+     
+    ret = cy_hw_sha_finish(&ctx->obj, &ctx->hashState, ctx->output_array_ptr);
+
+    memcpy(output, ctx->output_array_ptr, CY_CRYPTO_SHA1_DIGEST_SIZE);
+    return ret;
+    }
+#endif
     return cy_hw_sha_finish(&ctx->obj, &ctx->hashState, output);
 }
 

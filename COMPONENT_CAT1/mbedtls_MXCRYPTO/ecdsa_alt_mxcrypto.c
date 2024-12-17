@@ -85,7 +85,7 @@ int mbedtls_ecdsa_sign( mbedtls_ecp_group *grp, mbedtls_mpi *r, mbedtls_mpi *s,
                 const mbedtls_mpi *d, const unsigned char *buf, size_t blen,
                 int (*f_rng)(void *, unsigned char *, size_t), void *p_rng )
 {
-    int ret;
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED ;
     size_t bytesize;
     uint8_t *sig = NULL;
     uint8_t *tmp_k = NULL;
@@ -117,6 +117,58 @@ int mbedtls_ecdsa_sign( mbedtls_ecp_group *grp, mbedtls_mpi *r, mbedtls_mpi *s,
     dp = Cy_Crypto_Core_ECC_GetCurveParams(key.curveID);
 
     bytesize = CY_CRYPTO_BYTE_SIZE_OF_BITS(dp->size);
+    
+    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    uint8_t *key_k_data = NULL;
+    uint8_t *sig_data   = NULL;
+    uint8_t *tmp_k_data = NULL;
+    uint8_t *buf_data   = NULL;
+    #endif
+
+
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)buf, blen) && ((size_t)buf % DCACHE_LINE_ALIGNMENT_SIZE != 0 || blen % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+    { 
+    key_k_data = (uint8_t *)mbedtls_malloc(bytesize + (2*DCACHE_LINE_ALIGNMENT_SIZE)); 
+    key.k = (uint8_t*)((size_t)key_k_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)key_k_data & 0x1F)));
+    MBEDTLS_MPI_CHK((key_k_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
+
+    MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary( d, key.k, bytesize ) );
+    Cy_Crypto_Core_InvertEndianness(key.k, bytesize);
+
+    sig_data = (uint8_t *)mbedtls_malloc(2*bytesize + (2*DCACHE_LINE_ALIGNMENT_SIZE)); 
+    sig = (uint8_t*)((size_t)sig_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)sig_data & 0x1F)));
+    MBEDTLS_MPI_CHK((sig_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
+
+    tmp_k_data = (uint8_t *)mbedtls_malloc(bytesize + (2*DCACHE_LINE_ALIGNMENT_SIZE)); 
+    tmp_k = (uint8_t*)((size_t)tmp_k_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)tmp_k_data & 0x1F)));
+    MBEDTLS_MPI_CHK((tmp_k_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
+    
+    buf_data = (uint8_t *)mbedtls_malloc(blen + (2*DCACHE_LINE_ALIGNMENT_SIZE)); 
+    uint8_t *aligned_buf_data = (uint8_t*)((size_t)buf_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)buf_data & 0x1F)));
+    MBEDTLS_MPI_CHK((buf_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
+    memcpy((void *)aligned_buf_data, (void *)buf, blen);
+
+
+    ecdsa_status = Cy_Crypto_Core_ECC_MakePrivateKey(crypto_obj.base, key.curveID, tmp_k, f_rng, p_rng);
+    MBEDTLS_MPI_CHK((ecdsa_status == CY_CRYPTO_SUCCESS) ? 0 : MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED);
+
+    ecdsa_status = Cy_Crypto_Core_ECC_SignHash(crypto_obj.base, aligned_buf_data, blen, sig, &key, tmp_k);
+    MBEDTLS_MPI_CHK((ecdsa_status == CY_CRYPTO_SUCCESS) ? 0 : MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED);
+
+    memcpy((void *)buf, (void *)aligned_buf_data, blen);
+    
+    /* Prepare a signature to load into an mpi format */
+    Cy_Crypto_Core_InvertEndianness(sig, bytesize);
+    Cy_Crypto_Core_InvertEndianness(sig + bytesize, bytesize);
+
+    MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary( r, sig, bytesize ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary( s, sig + bytesize, bytesize ) );
+
+    goto cleanup;
+    
+    }
+#endif
 
     key.k = mbedtls_malloc(bytesize);
     MBEDTLS_MPI_CHK((key.k == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
@@ -130,7 +182,7 @@ int mbedtls_ecdsa_sign( mbedtls_ecp_group *grp, mbedtls_mpi *r, mbedtls_mpi *s,
     tmp_k = mbedtls_malloc(bytesize);
     MBEDTLS_MPI_CHK((tmp_k == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
 
-    ecdsa_status = Cy_Crypto_Core_ECC_MakePrivateKey(crypto_obj.base, key.curveID, tmp_k, f_rng, p_rng);
+     ecdsa_status = Cy_Crypto_Core_ECC_MakePrivateKey(crypto_obj.base, key.curveID, tmp_k, f_rng, p_rng);
     MBEDTLS_MPI_CHK((ecdsa_status == CY_CRYPTO_SUCCESS) ? 0 : MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED);
 
     ecdsa_status = Cy_Crypto_Core_ECC_SignHash(crypto_obj.base, buf, blen, sig, &key, tmp_k);
@@ -146,6 +198,13 @@ int mbedtls_ecdsa_sign( mbedtls_ecp_group *grp, mbedtls_mpi *r, mbedtls_mpi *s,
 cleanup:
     /* Realease the crypto hardware */
     cy_hw_crypto_release(&crypto_obj);
+
+    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    mbedtls_free(key_k_data);
+    mbedtls_free(sig_data);
+    mbedtls_free(tmp_k_data);
+    mbedtls_free(buf_data);
+    #endif
 
     if (key.k != NULL)
     {

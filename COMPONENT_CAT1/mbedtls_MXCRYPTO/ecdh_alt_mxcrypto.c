@@ -92,15 +92,20 @@ int mbedtls_ecdh_gen_public( mbedtls_ecp_group *grp, mbedtls_mpi *d, mbedtls_ecp
     size_t bytesize;
     cy_cmgr_crypto_hw_t crypto_obj = CY_CMGR_CRYPTO_OBJ_INIT;
     cy_stc_crypto_ecc_key key;
-    cy_stc_crypto_ecc_dp_type *dp;
     cy_en_crypto_status_t ecdh_status;
+
+    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+        uint8_t *key_x_data = NULL;
+        uint8_t *key_y_data = NULL;
+        uint8_t *key_k_data = NULL;
+    #endif
 
     ECDH_VALIDATE_RET( grp != NULL );
     ECDH_VALIDATE_RET( d != NULL );
     ECDH_VALIDATE_RET( Q != NULL );
     ECDH_VALIDATE_RET( f_rng != NULL );
 
-    if( mbedtls_ecp_get_type( grp ) != MBEDTLS_ECP_TYPE_SHORT_WEIERSTRASS )
+    if( mbedtls_ecp_get_type( grp ) != MBEDTLS_ECP_TYPE_SHORT_WEIERSTRASS && mbedtls_ecp_get_type( grp ) != MBEDTLS_ECP_TYPE_MONTGOMERY )
     {
         ret = MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE;
         return( ret );
@@ -113,12 +118,34 @@ int mbedtls_ecdh_gen_public( mbedtls_ecp_group *grp, mbedtls_mpi *d, mbedtls_ecp
 
     key.curveID = cy_get_dp_idx(grp->id);
 
-    dp = Cy_Crypto_Core_ECC_GetCurveParams(key.curveID);
-    bytesize = CY_CRYPTO_BYTE_SIZE_OF_BITS(dp->size);
+    if(key.curveID == CY_CRYPTO_ECC_ECP_EC25519)
+    {
+        bytesize = CY_CRYPTO_BYTE_SIZE_OF_BITS(grp->nbits);
+    }
+    else
+    {
+        cy_stc_crypto_ecc_dp_type *dp;
+        dp = Cy_Crypto_Core_ECC_GetCurveParams(key.curveID);
+        if(dp == NULL)
+        {
+            return MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE;
+        }
+        bytesize = CY_CRYPTO_BYTE_SIZE_OF_BITS(dp->size);
+    }
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_grow(d, bytesize) );
     key.k = (uint8_t *)d->p;
 
+    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+        if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)key.k, bytesize) && ((size_t)key.k % DCACHE_LINE_ALIGNMENT_SIZE != 0 || bytesize % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+        {  
+            key_k_data = (uint8_t *)malloc(bytesize + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+            MBEDTLS_MPI_CHK((key_k_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
+            key.k = (uint8_t*)((size_t)key_k_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)key_k_data & 0x1F)));
+            memcpy(key.k,d->p, bytesize);
+        }
+    #endif 
+  
     /* Q.Z coordinate should be 1 */
     MBEDTLS_MPI_CHK( mbedtls_mpi_lset( &Q->Z, 1 ) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_grow( &Q->X, bytesize ) );
@@ -126,17 +153,235 @@ int mbedtls_ecdh_gen_public( mbedtls_ecp_group *grp, mbedtls_mpi *d, mbedtls_ecp
     key.pubkey.x = (uint8_t *)Q->X.p;
     key.pubkey.y = (uint8_t *)Q->Y.p;
 
+    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+        if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)key.pubkey.x, bytesize) && ((size_t)key.pubkey.x % DCACHE_LINE_ALIGNMENT_SIZE != 0 || bytesize % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+        {
+            key_x_data = (uint8_t *)malloc(bytesize + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+            MBEDTLS_MPI_CHK((key_x_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
+            key_y_data = (uint8_t *)malloc(bytesize + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+            MBEDTLS_MPI_CHK((key_y_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0); 
+
+            key.pubkey.x = (uint8_t*)((size_t)key_x_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)key_x_data & 0x1F)));
+            key.pubkey.y = (uint8_t*)((size_t)key_y_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)key_y_data & 0x1F)));
+
+            memcpy(key.pubkey.x, Q->X.p, bytesize);
+            memcpy(key.pubkey.y, Q->Y.p, bytesize);
+
+            ecdh_status = Cy_Crypto_Core_ECC_MakeKeyPair(crypto_obj.base, key.curveID, &key, f_rng, p_rng);
+            MBEDTLS_MPI_CHK((ecdh_status != CY_CRYPTO_SUCCESS) ? MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED : 0);
+
+            if(key.curveID == CY_CRYPTO_ECC_ECP_EC25519)
+            {
+                Cy_Crypto_Core_InvertEndianness(key.k, bytesize);
+            }
+        
+            memcpy(Q->X.p, key.pubkey.x,bytesize);
+            memcpy(Q->Y.p, key.pubkey.y,bytesize);
+            memcpy(d->p, key.k, bytesize);
+
+            goto cleanup;
+        }
+    #endif
+    
     ecdh_status = Cy_Crypto_Core_ECC_MakeKeyPair(crypto_obj.base, key.curveID, &key, f_rng, p_rng);
     MBEDTLS_MPI_CHK((ecdh_status != CY_CRYPTO_SUCCESS) ? MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED : 0);
 
+    if(key.curveID == CY_CRYPTO_ECC_ECP_EC25519)
+    {
+        Cy_Crypto_Core_InvertEndianness(key.k, bytesize);
+    }
+    
+
 cleanup:
+    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+        if (key_k_data != NULL) free(key_k_data);
+        if (key_x_data != NULL) free(key_x_data);
+        if (key_y_data != NULL) free(key_y_data);
+    #endif
+
     /* Realease the crypto hardware */
     cy_hw_crypto_release(&crypto_obj);
 
     return( ret );
 }    
 #endif /* MBEDTLS_ECDH_GEN_PUBLIC_ALT */
+#if defined(MBEDTLS_ECDH_COMPUTE_SHARED_ALT)
+/**
+ * \brief           This function computes the shared secret.
+ *
+ *                  This function performs the second of two core computations
+ *                  implemented during the ECDH key exchange. The first core
+ *                  computation is performed by mbedtls_ecdh_gen_public().
+ *
+ * \see             ecp.h
+ *
+ * \note            If \p f_rng is not NULL, it is used to implement
+ *                  countermeasures against side-channel attacks.
+ *                  For more information, see mbedtls_ecp_mul().
+ *
+ * \param grp       The ECP group to use. This must be initialized and have
+ *                  domain parameters loaded, for example through
+ *                  mbedtls_ecp_load() or mbedtls_ecp_tls_read_group().
+ * \param z         The destination MPI (shared secret).
+ *                  This must be initialized.
+ * \param Q         The public key from another party.
+ *                  This must be initialized.
+ * \param d         Our secret exponent (private key).
+ *                  This must be initialized.
+ * \param f_rng     The RNG function to use. This must not be \c NULL.
+ * \param p_rng     The RNG context to be passed to \p f_rng. This may be
+ *                  \c NULL if \p f_rng is \c NULL or doesn't need a
+ *                  context argument.
+ *
+ * \return          \c 0 on success.
+ * \return          Another \c MBEDTLS_ERR_ECP_XXX or
+ *                  \c MBEDTLS_MPI_XXX error code on failure.
+ */
+int mbedtls_ecdh_compute_shared( mbedtls_ecp_group *grp, mbedtls_mpi *z,
+                         const mbedtls_ecp_point *Q, const mbedtls_mpi *d,
+                         int (*f_rng)(void *, unsigned char *, size_t),
+                         void *p_rng )
+{
+    int ret;
+    size_t bytesize;
+    cy_cmgr_crypto_hw_t crypto_obj = CY_CMGR_CRYPTO_OBJ_INIT;
+    cy_stc_crypto_ecc_key key;
+    cy_en_crypto_status_t ecdh_status;
 
+    (void)f_rng;
+    (void)p_rng;
+    
+    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+        uint8_t *key_x_data = NULL;
+        uint8_t *key_y_data = NULL;
+        uint8_t *key_k_data = NULL;
+        uint8_t *zp_data = NULL;
+    #endif
+    
+    ECDH_VALIDATE_RET( grp != NULL );
+    ECDH_VALIDATE_RET( Q != NULL );
+    ECDH_VALIDATE_RET( d != NULL );
+    ECDH_VALIDATE_RET( z != NULL );
+
+    if( mbedtls_ecp_get_type( grp ) != MBEDTLS_ECP_TYPE_SHORT_WEIERSTRASS
+        && mbedtls_ecp_get_type( grp ) != MBEDTLS_ECP_TYPE_MONTGOMERY )
+    {
+        ret = MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE;
+        return( ret );
+    }
+
+    ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+
+    /* Reserve the crypto hardware for the operation */
+    cy_hw_crypto_reserve(&crypto_obj, CY_CMGR_CRYPTO_VU);
+
+    key.curveID = cy_get_dp_idx(grp->id);
+    if(key.curveID == CY_CRYPTO_ECC_ECP_EC25519)
+    {
+        bytesize = CY_CRYPTO_BYTE_SIZE_OF_BITS(grp->nbits);
+    }
+    else
+    {
+        cy_stc_crypto_ecc_dp_type *dp;
+        dp = Cy_Crypto_Core_ECC_GetCurveParams(key.curveID);
+        if(dp == NULL)
+        {
+            return MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE;
+        }
+        bytesize = CY_CRYPTO_BYTE_SIZE_OF_BITS(dp->size);
+    }
+
+    MBEDTLS_MPI_CHK( mbedtls_mpi_grow( z, bytesize ) );
+    key.k = (uint8_t *)d->p;
+    key.pubkey.x = (uint8_t *)Q->X.p;
+    key.pubkey.y = (uint8_t *)Q->Y.p;
+
+    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+        if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)key.pubkey.x, bytesize) && ((size_t)key.pubkey.x % DCACHE_LINE_ALIGNMENT_SIZE != 0 || bytesize % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+        {
+
+            key_k_data = (uint8_t *)malloc(bytesize + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+            MBEDTLS_MPI_CHK((key_k_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
+            key.k = (uint8_t*)((size_t)key_k_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)key_k_data & 0x1F)));
+            memcpy(key.k,d->p, bytesize);
+
+            key_x_data = (uint8_t *)malloc(bytesize + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+            MBEDTLS_MPI_CHK((key_x_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
+            key_y_data = (uint8_t *)malloc(bytesize + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+            MBEDTLS_MPI_CHK((key_y_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
+            zp_data = (uint8_t *)malloc(bytesize + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+            MBEDTLS_MPI_CHK((zp_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
+
+            key.pubkey.x = (uint8_t*)((size_t)key_x_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)key_x_data & 0x1F)));
+            key.pubkey.y = (uint8_t*)((size_t)key_y_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)key_y_data & 0x1F)));
+            aligned_zp_data = (uint8_t*)((size_t)zp_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)zp_data & 0x1F)));
+        
+            memcpy(key.pubkey.x, Q->X.p, bytesize);
+            memcpy(key.pubkey.y, Q->Y.p, bytesize);
+            memcpy(aligned_zp_data, z->p, bytesize);
+
+            if(key.curveID == CY_CRYPTO_ECC_ECP_EC25519)
+            {
+        
+                Cy_Crypto_Core_InvertEndianness(key.k, bytesize);
+                ecdh_status = Cy_Crypto_Core_EC25519_PointMultiplication(crypto_obj.base, aligned_zp_data, (const uint8_t *)key.pubkey.x, (const uint8_t*)key.k);
+            }
+            else
+            {
+                uint8_t *Z_y = (uint8_t *)mbedtls_malloc(bytesize);
+                if(Z_y == NULL)
+                {
+                    ret = MBEDTLS_ERR_ECP_ALLOC_FAILED;
+                    goto cleanup;
+                }
+                ecdh_status = Cy_Crypto_Core_EC_NistP_PointMultiplication(crypto_obj.base, key.curveID, (const uint8_t *)key.pubkey.x,(const uint8_t *)key.pubkey.y,
+                (const uint8_t *)key.k, aligned_zp_data, Z_y);
+        
+                mbedtls_platform_zeroize(Z_y, bytesize);
+                mbedtls_free(Z_y);
+                MBEDTLS_MPI_CHK((ecdh_status != CY_CRYPTO_SUCCESS) ? MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED : 0);
+            }
+            memcpy(z->p, aligned_zp_data, bytesize);
+            goto cleanup;
+        }
+    #endif
+
+    if(key.curveID == CY_CRYPTO_ECC_ECP_EC25519)
+    {
+
+        Cy_Crypto_Core_InvertEndianness(key.k, bytesize);
+        ecdh_status = Cy_Crypto_Core_EC25519_PointMultiplication(crypto_obj.base, (uint8_t *)z->p, (const uint8_t *)key.pubkey.x, (const uint8_t*)key.k);
+    }
+    else
+    {
+        uint8_t *Z_y = (uint8_t *)mbedtls_malloc(bytesize);
+        if(Z_y == NULL)
+        {
+            ret = MBEDTLS_ERR_ECP_ALLOC_FAILED;
+            goto cleanup;
+        }
+        ecdh_status = Cy_Crypto_Core_EC_NistP_PointMultiplication(crypto_obj.base, key.curveID, (const uint8_t *)key.pubkey.x,(const uint8_t *)key.pubkey.y,
+        (const uint8_t *)key.k, (uint8_t *)z->p, Z_y);
+
+        mbedtls_platform_zeroize(Z_y, bytesize);
+        mbedtls_free(Z_y);
+    }
+
+    MBEDTLS_MPI_CHK((ecdh_status != CY_CRYPTO_SUCCESS) ? MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED : 0);
+
+cleanup:
+    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+        if (key_k_data != NULL) free(key_k_data);
+        if (key_x_data != NULL) free(key_x_data);
+        if (key_y_data != NULL) free(key_y_data);
+        if (zp_data!= NULL) free(zp_data);
+    #endif
+    /* Realease the crypto hardware */
+    cy_hw_crypto_release(&crypto_obj);
+
+    return( ret );
+}
+#endif /* #if defined(MBEDTLS_ECDH_COMPUTE_SHARED_ALT) */
 #endif /* MBEDTLS_ECDH_C */
 
 #endif /* CY_IP_MXCRYPTO */

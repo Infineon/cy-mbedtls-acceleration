@@ -1242,11 +1242,20 @@ static int ecp_mul_comb( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
     #define biL                 (ciL << 3)                       /* bits  in limb  */
     #define BITS_TO_LIMBS(i)    ((i) / biL + ((i) % biL != 0))
     uint32_t data_size = BITS_TO_LIMBS(grp->pbits);
-
+    size_t param_byte_size = CY_CRYPTO_BYTE_SIZE_OF_BITS(grp->pbits);
     int ret;
 
     /* Suppress warnings for unused input parameters */
     (void)rs_ctx;
+    (void)param_byte_size;
+
+    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+        uint8_t *PiXp_data = NULL;
+        uint8_t *PiYp_data = NULL;
+        uint8_t *dip_data  = NULL;
+        uint8_t *RXp_data  = NULL;
+        uint8_t *RYp_data  = NULL;
+    #endif
 
     mbedtls_mpi di;
     mbedtls_ecp_point Pi;
@@ -1278,11 +1287,80 @@ static int ecp_mul_comb( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
     MBEDTLS_MPI_CHK( mbedtls_mpi_grow(&R->X, data_size) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_grow(&R->Y, data_size) );
 
+
+
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+
+    if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)Pi.X.p, param_byte_size) && ((size_t)Pi.X.p % DCACHE_LINE_ALIGNMENT_SIZE != 0 || param_byte_size % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+    {    
+
+        PiXp_data = (uint8_t *)malloc (param_byte_size  + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+        MBEDTLS_MPI_CHK((PiXp_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
+
+        PiYp_data = (uint8_t *)malloc (param_byte_size + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+        MBEDTLS_MPI_CHK((PiYp_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
+
+        dip_data = (uint8_t *)malloc  (param_byte_size+ (2*DCACHE_LINE_ALIGNMENT_SIZE));
+        MBEDTLS_MPI_CHK((dip_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
+
+        RXp_data = (uint8_t *)malloc  (param_byte_size + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+        MBEDTLS_MPI_CHK((RXp_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
+
+        RYp_data = (uint8_t *)malloc  (param_byte_size + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+        MBEDTLS_MPI_CHK((RYp_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
+          
+        uint8_t *aligned_PiXp_data = (uint8_t*)((size_t)(PiXp_data) + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)PiXp_data & 0x1F)));
+        uint8_t *aligned_PiYp_data = (uint8_t*)((size_t)(PiYp_data) + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)PiYp_data & 0x1F)));
+        uint8_t *aligned_dip_data = (uint8_t*)((size_t)(dip_data) + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)dip_data & 0x1F)));
+        uint8_t *aligned_RXp_data = (uint8_t*)((size_t)(RXp_data) + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)RXp_data & 0x1F)));
+        uint8_t *aligned_RYp_data = (uint8_t*)((size_t)(RYp_data) + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)RYp_data & 0x1F)));
+        
+        
+        memcpy((void *)aligned_PiXp_data, (void *)Pi.X.p, param_byte_size);
+        memcpy((void *)aligned_PiYp_data, (void *)Pi.Y.p, param_byte_size);
+        memcpy((void *)aligned_dip_data, (void *)di.p, param_byte_size);
+
+
+        Cy_Crypto_Core_EC_NistP_PointMultiplication (crypto_obj.base,
+                curveId,
+                aligned_PiXp_data, aligned_PiYp_data,
+                aligned_dip_data, aligned_RXp_data, aligned_RYp_data);
+        
+            
+        memcpy( (void *)R->X.p, (void *)aligned_RXp_data, param_byte_size);
+        memcpy( (void *)R->Y.p, (void *)aligned_RYp_data, param_byte_size);        
+    
+        /* R.Z coordinate should be 1 */
+        MBEDTLS_MPI_CHK( mbedtls_mpi_lset( &R->Z, 1 ) );
+
+        /*
+         * Knowledge of the jacobian coordinates may leak the last few bits of the
+         * scalar [1], and since our MPI implementation isn't constant-flow,
+         * inversion (used for coordinate normalization) may leak the full value
+         * of its input via side-channels [2].
+         *
+         * [1] https://eprint.iacr.org/2003/191
+         * [2] https://eprint.iacr.org/2020/055
+         *
+         * Avoid the leak by randomizing coordinates before we normalize them.
+         */
+        if( f_rng != 0 )
+            MBEDTLS_MPI_CHK( ecp_randomize_jac( grp, R, f_rng, p_rng ) );
+    
+        MBEDTLS_MPI_CHK( ecp_normalize_jac( grp, R ) );
+            
+        goto cleanup;
+    
+    }
+#endif
+     
     Cy_Crypto_Core_EC_NistP_PointMultiplication (crypto_obj.base,
             curveId,
             (uint8_t *)Pi.X.p, (uint8_t *)Pi.Y.p,
             (uint8_t *)di.p,
             (uint8_t *)R->X.p, (uint8_t *)R->Y.p);
+
+
 
     /* R.Z coordinate should be 1 */
     MBEDTLS_MPI_CHK( mbedtls_mpi_lset( &R->Z, 1 ) );
@@ -1305,6 +1383,14 @@ static int ecp_mul_comb( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
 
 cleanup:
 
+    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+            if (PiXp_data != NULL) free(PiXp_data);
+            if (PiYp_data != NULL) free(PiYp_data);
+            if (dip_data != NULL) free(dip_data);
+            if (RXp_data != NULL) free(RXp_data);
+            if (RYp_data != NULL) free(RYp_data);
+    #endif
+    
     mbedtls_mpi_free(&di);
     mbedtls_ecp_point_free(&Pi);
 
@@ -2264,7 +2350,16 @@ cy_en_crypto_ecc_curve_id_t cy_get_dp_idx(mbedtls_ecp_group_id gid)
             dp_idx = CY_CRYPTO_ECC_ECP_SECP521R1;
             break;
     #endif /* defined(MBEDTLS_ECP_DP_SECP521R1_ENABLED) */
-
+    #if defined(MBEDTLS_ECP_DP_CURVE25519_ENABLED)
+        case MBEDTLS_ECP_DP_CURVE25519:
+            dp_idx = CY_CRYPTO_ECC_ECP_EC25519;
+            break;
+    #endif /* defined(MBEDTLS_ECP_DP_CURVE25519_ENABLED) */
+    #if defined(MBEDTLS_ECP_DP_ED25519_ENABLED)
+        case MBEDTLS_ECP_DP_ED25519:
+            dp_idx = CY_CRYPTO_ECC_ECP_ED25519;
+            break;
+    #endif /* defined(MBEDTLS_ECP_DP_ED25519_ENABLED) */
         default:
             dp_idx = CY_CRYPTO_ECC_ECP_NONE;
             break;

@@ -34,8 +34,9 @@
 
 #include "crypto_common.h"
 
-#if defined(MBEDTLS_SHA1_ALT)
+#define SHA1_DCACHE_BUFFER_SIZE  (64)
 
+#if defined(MBEDTLS_SHA1_ALT)
 typedef struct mbedtls_sha1_context {
     cy_cmgr_crypto_hw_t MBEDTLS_PRIVATE(obj);
     cy_stc_crypto_sha_state_t MBEDTLS_PRIVATE(hashState);         /* Structure used by CY Crypto Driver   */
@@ -43,6 +44,10 @@ typedef struct mbedtls_sha1_context {
     cy_stc_crypto_v1_sha1_buffers_t MBEDTLS_PRIVATE(shaBuffers);  /* Structure used by CY Crypto Driver   */
     #else
     cy_stc_crypto_v2_sha1_buffers_t MBEDTLS_PRIVATE(shaBuffers);  /* Structure used by CY Crypto Driver   */
+    #endif
+    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    uint8_t output_array[SHA1_DCACHE_BUFFER_SIZE];
+    uint8_t* output_array_ptr;
     #endif
 }
 mbedtls_sha1_context;

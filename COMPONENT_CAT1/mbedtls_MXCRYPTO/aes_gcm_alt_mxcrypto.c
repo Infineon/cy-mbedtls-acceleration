@@ -69,6 +69,10 @@ void mbedtls_gcm_init(mbedtls_gcm_context *ctx)
     GCM_VALIDATE( ctx != NULL );
     cy_hw_zeroize(ctx, sizeof( mbedtls_gcm_context ) );
 
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    ctx->input_array_ptr  = (uint8_t*)((size_t)ctx->input_array + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)ctx->input_array & 0x1F)));
+    ctx->output_array_ptr = (uint8_t*)((size_t)ctx->output_array + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)ctx->output_array & 0x1F)));
+#endif
     (void)cy_hw_crypto_reserve((cy_cmgr_crypto_hw_t *)ctx, CY_CMGR_CRYPTO_COMMON);
 }
 
@@ -101,6 +105,24 @@ int mbedtls_gcm_setkey(mbedtls_gcm_context *ctx,
     status = Cy_Crypto_Core_Aes_GCM_Init(ctx->obj.base, &ctx->aes_buffers, &ctx->aes_state);
     if (CY_CRYPTO_SUCCESS == status)
     {
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)key, keybits) && ((size_t)key % DCACHE_LINE_ALIGNMENT_SIZE != 0 || keybits % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+    {
+        uint8_t *key_data = (uint8_t *)malloc(keybits + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+        if (NULL == key_data)
+        {
+            return AES_GCM_MEM_ALLOC_FAILED;
+        }
+        uint8_t *aligned_key_data = (uint8_t*)((size_t)key_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)key_data & 0x1F)));
+
+        memcpy((void *)aligned_key_data, (void *)key, keybits);
+
+        status = Cy_Crypto_Core_Aes_GCM_SetKey(ctx->obj.base, aligned_key_data, key_length, &ctx->aes_state);
+
+        free(key_data);
+        return status;
+    }
+#endif
         status = Cy_Crypto_Core_Aes_GCM_SetKey(ctx->obj.base, key, key_length, &ctx->aes_state);
     }
 
@@ -135,6 +157,24 @@ int mbedtls_gcm_starts(mbedtls_gcm_context *ctx, int mode, const unsigned char *
         default : return( MBEDTLS_ERR_GCM_BAD_INPUT );
     }
 
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)iv, iv_len) && ((size_t)iv % DCACHE_LINE_ALIGNMENT_SIZE != 0 || iv_len % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+    {
+    uint8_t *iv_data = (uint8_t *)malloc(iv_len + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+    if (NULL == iv_data)
+    {
+        return AES_GCM_MEM_ALLOC_FAILED;
+    }
+    uint8_t *aligned_iv_data = (uint8_t*)((size_t)iv_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)iv_data & 0x1F)));
+
+    memcpy((void *)aligned_iv_data, (void *)iv, iv_len);
+
+    status = Cy_Crypto_Core_Aes_GCM_Start(ctx->obj.base, aes_mode, aligned_iv_data, iv_len, &ctx->aes_state);
+
+    free(iv_data);
+    return status;
+    }
+#endif
     status = Cy_Crypto_Core_Aes_GCM_Start(ctx->obj.base, aes_mode, iv, iv_len, &ctx->aes_state);
 
     if (CY_CRYPTO_SUCCESS != status)
@@ -158,6 +198,24 @@ int mbedtls_gcm_update_ad( mbedtls_gcm_context *ctx,
     if( (uint64_t) add_len >> 61 != 0 )
         return( MBEDTLS_ERR_GCM_BAD_INPUT );
 
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)add, add_len) && ((size_t)add % DCACHE_LINE_ALIGNMENT_SIZE != 0 || add_len % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+    {
+    uint8_t *add_data = (uint8_t *)malloc(add_len + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+    if (NULL == add_data)
+    {
+        return AES_GCM_MEM_ALLOC_FAILED;
+    }
+    uint8_t *aligned_add_data = (uint8_t*)((size_t)add_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)add_data & 0x1F)));
+
+    memcpy((void *)aligned_add_data, (void *)add, add_len);
+
+    status = Cy_Crypto_Core_Aes_GCM_AAD_Update(ctx->obj.base, (uint8_t *)aligned_add_data, add_len, &ctx->aes_state);
+
+    free(add_data);
+    return status;
+    }
+#endif
     status = Cy_Crypto_Core_Aes_GCM_AAD_Update(ctx->obj.base, (uint8_t *)add, add_len, &ctx->aes_state);
 
     if (CY_CRYPTO_SUCCESS != status)
@@ -200,6 +258,35 @@ int mbedtls_gcm_update( mbedtls_gcm_context *ctx,
         return( MBEDTLS_ERR_GCM_BAD_INPUT );
     }
 
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    if((Cy_Syslib_IsMemCacheable(MPU, (uint32_t)input, input_length) && ((size_t)input % DCACHE_LINE_ALIGNMENT_SIZE != 0 || input_length % DCACHE_LINE_ALIGNMENT_SIZE != 0) ) && (Cy_Syslib_IsMemCacheable(MPU, (uint32_t)output, *output_length) && ((size_t)output % DCACHE_LINE_ALIGNMENT_SIZE != 0 || *output_length % DCACHE_LINE_ALIGNMENT_SIZE != 0)))
+    {
+    uint8_t *input_data = (uint8_t *)malloc(input_length + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+    if (NULL == input_data)
+    {
+        return AES_GCM_MEM_ALLOC_FAILED;
+    }
+
+    uint8_t *aligned_input_data = (uint8_t*)((size_t)input_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)input_data & 0x1F)));
+    memcpy((void *)aligned_input_data, (void *)input, input_length);
+
+    uint8_t *output_data = (uint8_t *)malloc(output_size + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+    if (NULL == output_data)
+    {
+        return AES_GCM_MEM_ALLOC_FAILED;
+    }
+
+    uint8_t *aligned_output_data = (uint8_t*)((size_t)output_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)output_data & 0x1F)));
+
+    status = Cy_Crypto_Core_Aes_GCM_Update(ctx->obj.base, aligned_input_data,  input_length, aligned_output_data, &ctx->aes_state);
+
+    memcpy(output, aligned_output_data, *output_length);
+
+    free(input_data);
+    free(output_data);
+    return status;
+    }
+#endif
     status = Cy_Crypto_Core_Aes_GCM_Update(ctx->obj.base, input,  input_length, output, &ctx->aes_state);
 
     if (CY_CRYPTO_SUCCESS != status)
@@ -231,6 +318,17 @@ int mbedtls_gcm_finish( mbedtls_gcm_context *ctx,
         return MBEDTLS_ERR_GCM_BAD_INPUT;
     }
 
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)tag, 32) && ((size_t)tag % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+    {
+    
+    status = Cy_Crypto_Core_Aes_GCM_Finish(ctx->obj.base, ctx->input_array_ptr, tag_len,  &ctx->aes_state);
+
+    memcpy((void *)tag, (void *)ctx->input_array_ptr, tag_len);
+
+    return status;
+    }
+#endif
     status = Cy_Crypto_Core_Aes_GCM_Finish(ctx->obj.base, tag, tag_len,  &ctx->aes_state);
 
     if (CY_CRYPTO_SUCCESS != status)
@@ -311,7 +409,15 @@ int mbedtls_gcm_auth_decrypt(mbedtls_gcm_context *ctx,
         return( ret );
     }
 
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+
+    memcpy(ctx->output_array_ptr, check_tag, CY_CRYPTO_AES_BLOCK_SIZE);
+    memcpy(ctx->input_array_ptr, tag, CY_CRYPTO_AES_BLOCK_SIZE);
+
+    if(Cy_Crypto_Core_MemCmp(ctx->obj.base, ctx->input_array_ptr, ctx->output_array_ptr, tag_len) != 0U)
+#else
     if(Cy_Crypto_Core_MemCmp(ctx->obj.base, tag, check_tag, tag_len) != 0U)
+#endif
     {
         return MBEDTLS_ERR_GCM_AUTH_FAILED;
     }

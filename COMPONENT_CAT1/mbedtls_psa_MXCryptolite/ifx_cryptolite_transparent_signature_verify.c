@@ -151,7 +151,7 @@ static psa_status_t ifx_cryptolite_transparent_ecdsa_verify(const psa_key_attrib
         static uint8_t public_key[IFX_CRYPTOLITE_ECC_MAX_PUB_KEY_SIZE];
         static uint8_t private_key[IFX_CRYPTOLITE_ECC_MAX_PRIV_KEY_SIZE];
         static uint8_t signature_buf[IFX_CRYPTOLITE_ECC_MAX_PUB_KEY_SIZE];
-        static uint8_t hash_buf[CY_CRYPTOLITE_SHA256_HASH_SIZE];
+        static uint8_t hash_buf[IFX_PSA_CRYPTOLITE_MAX_SHA_HASH_SIZE];
         static cy_stc_cryptolite_ecc_buffer_t ecdsa_buf;
 
         ecdsa_buf_ptr = &ecdsa_buf;
@@ -163,7 +163,7 @@ static psa_status_t ifx_cryptolite_transparent_ecdsa_verify(const psa_key_attrib
         uint8_t public_key[IFX_CRYPTOLITE_ECC_MAX_PUB_KEY_SIZE];
         uint8_t private_key[IFX_CRYPTOLITE_ECC_MAX_PRIV_KEY_SIZE];
         uint8_t signature_buf[IFX_CRYPTOLITE_ECC_MAX_PUB_KEY_SIZE];
-        uint8_t hash_buf[CY_CRYPTOLITE_SHA256_HASH_SIZE];
+        uint8_t hash_buf[IFX_PSA_CRYPTOLITE_MAX_SHA_HASH_SIZE];
         cy_stc_cryptolite_ecc_buffer_t ecdsa_buf;
 
         ecdsa_buf_ptr = &ecdsa_buf;

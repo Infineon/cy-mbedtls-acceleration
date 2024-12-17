@@ -38,6 +38,11 @@ static psa_status_t ifx_cryptolite_transparent_psa_aead_setup(ifx_cryptolite_tra
     size_t key_bits;
     psa_key_type_t key_type;
 
+    if(key_type != PSA_KEY_TYPE_AES)
+    {
+        return PSA_ERROR_NOT_SUPPORTED;
+    }
+
     if((NULL==operation) || (NULL==attributes) || ((NULL==key_buffer) && (key_buffer_size > 0)))
     {
         return PSA_ERROR_INVALID_ARGUMENT;

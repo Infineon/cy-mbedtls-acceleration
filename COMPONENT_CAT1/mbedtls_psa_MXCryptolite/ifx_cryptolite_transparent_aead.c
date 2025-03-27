@@ -36,29 +36,29 @@ static psa_status_t ifx_cryptolite_transparent_psa_aead_setup(ifx_cryptolite_tra
     cy_en_cryptolite_status_t cy_status = CY_CRYPTOLITE_BAD_PARAMS;
     psa_status_t status = PSA_ERROR_CORRUPTION_DETECTED;
     size_t key_bits;
-    psa_key_type_t key_type;
+    psa_key_type_t key_type ;
+
+    key_bits = psa_get_key_bits(attributes);
+    key_type = psa_get_key_type(attributes);
 
     if(key_type != PSA_KEY_TYPE_AES)
     {
         return PSA_ERROR_NOT_SUPPORTED;
     }
-
+    
     if((NULL==operation) || (NULL==attributes) || ((NULL==key_buffer) && (key_buffer_size > 0)))
     {
         return PSA_ERROR_INVALID_ARGUMENT;
     }
 
-    key_bits = psa_get_key_bits(attributes);
-    key_type = psa_get_key_type(attributes);
-
     operation->tag_length = 0;
+    operation->alg = PSA_ALG_NONE;
 
     switch (PSA_ALG_AEAD_WITH_SHORTENED_TAG(alg, 0))
     {
 
 #if defined(IFX_PSA_CRYPTOLITE_CCM)
         case PSA_ALG_AEAD_WITH_SHORTENED_TAG(PSA_ALG_CCM, 0):
-            operation->alg = PSA_ALG_CCM;
 
             if (PSA_BLOCK_CIPHER_BLOCK_LENGTH(key_type) != 16)
             {
@@ -70,6 +70,8 @@ static psa_status_t ifx_cryptolite_transparent_psa_aead_setup(ifx_cryptolite_tra
                 case 128:  break;
                 default : return( PSA_ERROR_INVALID_ARGUMENT );
             }
+
+            operation->alg = PSA_ALG_CCM;
 
             cy_status = Cy_Cryptolite_Aes_Ccm_Init(CRYPTOLITE, &operation->aes_buffers, &operation->aes_state);
 

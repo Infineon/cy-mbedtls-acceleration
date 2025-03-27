@@ -18,7 +18,7 @@
  */
 
 /*
- * \file    ed25519_alt_mxcrypto.c
+ * \file    ed25519_alt_mxcryptolite.c
  * \version 2.3.0
  *
  * \brief   This file provides an API for Elliptic Curves sign and verifications.
@@ -29,23 +29,19 @@
 #include "common.h"
 #include "cy_device.h"
 
-#if defined (CY_IP_MXCRYPTO)
+#if defined (CY_IP_MXCRYPTOLITE)
 
 #include "mbedtls/build_info.h"
 
 #if defined(MBEDTLS_EDDSA_ALT)
 
-
-
 #include "mbedtls/platform_util.h"
 #include "mbedtls/error.h"
 #include "mbedtls/ecp.h"
 
-#include "cy_crypto_core.h"
-#include "cy_crypto_core_ecc.h"
-#include "cy_crypto_core_vu.h"
-#include "crypto_common.h"
-
+#include "cy_cryptolite.h"
+#include "cryptolite_common.h"
+#include "cy_cryptolite_utils.h"
 
 #include "eddsa_alt.h"
 #include <string.h>
@@ -70,18 +66,18 @@ int mbedtls_eddsa_sign( mbedtls_ecp_group *grp,
 {
     int ret;
     size_t bytesize;
-    uint8_t *sig_ptr = NULL;
     uint8_t *key_ptr = NULL;
     uint8_t *sig = NULL;
     (void)p_rng;
     (void)f_rng;
 
-    cy_cmgr_crypto_hw_t crypto_obj = CY_CMGR_CRYPTO_OBJ_INIT;
-    cy_stc_crypto_ecc_key key;
-    cy_stc_crypto_edw_dp_type edwDp_t;
-    cy_stc_crypto_edw_dp_type *dp = &edwDp_t;
-    cy_en_crypto_status_t eddsa_status;
-    cy_en_eddsa_sig_type_t sig_type = CY_CRYPTO_EDDSA_PURE;
+    cy_stc_cryptolite_context_ecdsa_t cfContext;
+    cy_stc_cryptolite_ecc_buffer_t *eccBuffer = NULL;
+    cy_stc_cryptolite_ed25519_sha512_t shaFunctions;
+
+    cy_stc_cryptolite_ecc_key key;
+    cy_en_cryptolite_status_t eddsa_status;
+    cy_en_cryptolite_eddsa_sig_type_t sig_type = CY_CRYPTOLITE_EDDSA_PURE;
 
     EDDSA_VALIDATE_RET( grp   != NULL );
     EDDSA_VALIDATE_RET( r     != NULL );
@@ -99,11 +95,11 @@ int mbedtls_eddsa_sign( mbedtls_ecp_group *grp,
             {
                 return MBEDTLS_ERR_ECP_BAD_INPUT_DATA;
             }
-            sig_type = CY_CRYPTO_EDDSA_CTX;
+            sig_type = CY_CRYPTOLITE_EDDSA_CTX;
         }
         else if (eddsa_id == MBEDTLS_EDDSA_PREHASH)
         {
-            sig_type = CY_CRYPTO_EDDSA_PREHASH;
+            sig_type = CY_CRYPTOLITE_EDDSA_PREHASH;
         }
         else
         {
@@ -118,7 +114,7 @@ int mbedtls_eddsa_sign( mbedtls_ecp_group *grp,
     }
     if (grp->id == MBEDTLS_ECP_DP_ED25519)
     {
-        key.curveID = CY_CRYPTO_ECC_ECP_ED25519;
+        key.curveID = CY_CRYPTOLITE_ECC_ECP_ED25519;
     }
     else
     {
@@ -129,50 +125,61 @@ int mbedtls_eddsa_sign( mbedtls_ecp_group *grp,
     if( mbedtls_mpi_size( d ) != 32)
         return( MBEDTLS_ERR_ECP_INVALID_KEY );
 
-    /* Reserve the crypto hardware for the operation */
-    cy_hw_crypto_reserve(&crypto_obj, CY_CMGR_CRYPTO_VU);
+    bytesize = CY_CRYPTOLITE_ECC_ED25519_BYTE_SIZE;
 
-    if(CY_CRYPTO_SUCCESS != Cy_Crypto_Core_EDW_GetCurveParams(dp, key.curveID))
-    {
-        return MBEDTLS_ERR_ECP_BAD_INPUT_DATA;
-    }
-    bytesize = CY_CRYPTO_BYTE_SIZE_OF_BITS(dp->size);
+    eccBuffer = (cy_stc_cryptolite_ecc_buffer_t *)mbedtls_malloc(sizeof(cy_stc_cryptolite_ecc_buffer_t));
+    MBEDTLS_MPI_CHK((eccBuffer == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
 
-    key_ptr = ifx_mbedtls_malloc(CY_CRYPTO_ALIGN_CACHE_LINE(bytesize)+CY_CRYPTO_DCAHCE_PADDING_SIZE);
+    key_ptr = (uint8_t*)mbedtls_malloc(bytesize);
     MBEDTLS_MPI_CHK((key_ptr == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
-    key.k = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)key_ptr);
+    key.k = key_ptr;
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary( d, key.k, bytesize ) );
-    Cy_Crypto_Core_InvertEndianness(key.k, bytesize);
+    Cy_Cryptolite_InvertEndianness(key.k, bytesize);
 
-    sig_ptr = ifx_mbedtls_malloc((2*CY_CRYPTO_ALIGN_CACHE_LINE(bytesize))+CY_CRYPTO_DCAHCE_PADDING_SIZE);
-    MBEDTLS_MPI_CHK((sig_ptr == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
-    sig = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)sig_ptr);
+    sig = (uint8_t*)mbedtls_malloc(2*(bytesize));
+    MBEDTLS_MPI_CHK((sig == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
 
-    eddsa_status = Cy_Crypto_Core_ED25519_Sign(crypto_obj.base, buf, blen, sig, &key, sig_type,
+    /*sha512 fp using mbedtls SHA512 library*/
+    shaFunctions.shactx = Cy_ed25519_sha512_ctx;
+    shaFunctions.sha_init = Cy_ed25519_sha512_init;
+    shaFunctions.sha_start = Cy_ed25519_sha512_start;
+    shaFunctions.sha_update = Cy_ed25519_sha512_update;
+    shaFunctions.sha_finish = Cy_ed25519_sha512_finish;
+    shaFunctions.sha_free = Cy_ed25519_sha512_free;
+
+    eddsa_status = Cy_Cryptolite_ED25519_Init(CRYPTOLITE, &cfContext, eccBuffer, &shaFunctions);
+    MBEDTLS_MPI_CHK((eddsa_status == CY_CRYPTOLITE_SUCCESS) ? 0 : MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED);
+
+    eddsa_status = Cy_Cryptolite_ED25519_Sign(CRYPTOLITE, &cfContext, buf, blen, sig, &key, sig_type,
                                                 ed_ctx, ed_ctx_len);
-    MBEDTLS_MPI_CHK((eddsa_status == CY_CRYPTO_SUCCESS) ? 0 : MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED);
+    MBEDTLS_MPI_CHK((eddsa_status == CY_CRYPTOLITE_SUCCESS) ? 0 : MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED);
 
     /* Prepare a signature to load into an mpi format */
-    Cy_Crypto_Core_InvertEndianness(sig, bytesize);
-    Cy_Crypto_Core_InvertEndianness(sig + bytesize, bytesize);
+    Cy_Cryptolite_InvertEndianness(sig, bytesize);
+    Cy_Cryptolite_InvertEndianness(sig + bytesize, bytesize);
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary( r, sig, bytesize ) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary( s, sig + bytesize, bytesize ) );
+    /*De-init context*/
+    (void)Cy_Cryptolite_ED25519_Free(CRYPTOLITE, &cfContext);
 
 cleanup:
-    /* Realease the crypto hardware */
-    cy_hw_crypto_release(&crypto_obj);
 
+    if (eccBuffer != NULL)
+    {
+        mbedtls_platform_zeroize(eccBuffer, sizeof(cy_stc_cryptolite_ecc_buffer_t));
+        mbedtls_free(eccBuffer);
+    }
     if (key_ptr != NULL)
     {
         mbedtls_platform_zeroize(key.k, bytesize);
-        ifx_mbedtls_free(key_ptr);
+        mbedtls_free(key_ptr);
     }
-    if (sig_ptr != NULL)
+    if (sig != NULL)
     {
         mbedtls_platform_zeroize(sig, 2 * bytesize);
-        ifx_mbedtls_free(sig_ptr);
+        mbedtls_free(sig);
     }
 
     return( ret );
@@ -193,14 +200,14 @@ cleanup:
     uint32_t stat;
     size_t bytesize;
     uint8_t *sig = NULL;
-    uint8_t *sig_ptr = NULL;
     uint8_t *point_arr = NULL;
-    cy_cmgr_crypto_hw_t crypto_obj = CY_CMGR_CRYPTO_OBJ_INIT;
-    cy_stc_crypto_ecc_key key;
-    cy_stc_crypto_edw_dp_type edwDp_t;
-    cy_stc_crypto_edw_dp_type *dp = &edwDp_t;
-    cy_en_crypto_status_t eddsa_ver_status;
-    cy_en_eddsa_sig_type_t sig_type = CY_CRYPTO_EDDSA_PURE;
+
+    cy_stc_cryptolite_ecc_key key;
+    cy_en_cryptolite_status_t eddsa_ver_status;
+    cy_en_cryptolite_eddsa_sig_type_t sig_type = CY_CRYPTOLITE_EDDSA_PURE;
+    cy_stc_cryptolite_context_ecdsa_t cfContext;
+    cy_stc_cryptolite_ecc_buffer_t *eccBuffer = NULL;
+    cy_stc_cryptolite_ed25519_sha512_t shaFunctions;
 
     EDDSA_VALIDATE_RET( grp != NULL );
     EDDSA_VALIDATE_RET( Q   != NULL );
@@ -216,11 +223,11 @@ cleanup:
             {
                 return MBEDTLS_ERR_ECP_BAD_INPUT_DATA;
             }
-            sig_type = CY_CRYPTO_EDDSA_CTX;
+            sig_type = CY_CRYPTOLITE_EDDSA_CTX;
         }
         else if (eddsa_id == MBEDTLS_EDDSA_PREHASH)
         {
-            sig_type = CY_CRYPTO_EDDSA_PREHASH;
+            sig_type = CY_CRYPTOLITE_EDDSA_PREHASH;
         }
         else
         {
@@ -234,70 +241,81 @@ cleanup:
 
     if (grp->id == MBEDTLS_ECP_DP_ED25519)
     {
-        key.curveID = CY_CRYPTO_ECC_ECP_ED25519;
+        key.curveID = CY_CRYPTOLITE_ECC_ECP_ED25519;
     }
     else
     {
         return MBEDTLS_ERR_ECP_BAD_INPUT_DATA;
     }
 
-    MBEDTLS_MPI_CHK( (key.curveID == CY_CRYPTO_ECC_ECP_NONE) ? MBEDTLS_ERR_ECP_BAD_INPUT_DATA : 0);
+    MBEDTLS_MPI_CHK( (key.curveID == CY_CRYPTOLITE_ECC_ECP_NONE) ? MBEDTLS_ERR_ECP_BAD_INPUT_DATA : 0);
 
-    /* Reserve the crypto hardware for the operation */
-    cy_hw_crypto_reserve(&crypto_obj, CY_CMGR_CRYPTO_VU);
+    bytesize   = CY_CRYPTOLITE_ECC_ED25519_BYTE_SIZE;
 
-    if(CY_CRYPTO_SUCCESS != Cy_Crypto_Core_EDW_GetCurveParams(dp, key.curveID))
-    {
-        return MBEDTLS_ERR_ECP_BAD_INPUT_DATA;
-    }
+    eccBuffer = (cy_stc_cryptolite_ecc_buffer_t *)mbedtls_malloc(sizeof(cy_stc_cryptolite_ecc_buffer_t));
+    MBEDTLS_MPI_CHK((eccBuffer == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
 
-    bytesize   = CY_CRYPTO_BYTE_SIZE_OF_BITS(dp->size);
-
-    point_arr = ifx_mbedtls_malloc((2*CY_CRYPTO_ALIGN_CACHE_LINE(bytesize))+CY_CRYPTO_DCAHCE_PADDING_SIZE);
+    point_arr = (uint8_t*)mbedtls_malloc(2*(bytesize));
     MBEDTLS_MPI_CHK((point_arr == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
-    key.pubkey.x  = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)point_arr);
-    key.pubkey.y  = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)point_arr) + bytesize;
+    key.pubkey.x  = point_arr;
+    key.pubkey.y  = point_arr + bytesize;
 
-    sig_ptr = ifx_mbedtls_malloc((2*CY_CRYPTO_ALIGN_CACHE_LINE(bytesize))+CY_CRYPTO_DCAHCE_PADDING_SIZE);
-    MBEDTLS_MPI_CHK((sig_ptr == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
-    sig = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)sig_ptr);
+    sig = (uint8_t*)mbedtls_malloc(2*(bytesize));
+    MBEDTLS_MPI_CHK((sig == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary( r, sig, bytesize ) );
-    Cy_Crypto_Core_InvertEndianness(sig, bytesize);
+    Cy_Cryptolite_InvertEndianness(sig, bytesize);
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary( s, sig + bytesize, bytesize ) );
-    Cy_Crypto_Core_InvertEndianness(sig + bytesize, bytesize);
+    Cy_Cryptolite_InvertEndianness(sig + bytesize, bytesize);
 
     /* Export a pubKey from an mpi format to verify */
     MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary( &Q->X, key.pubkey.x, bytesize ) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary( &Q->Y, key.pubkey.y, bytesize ) );
-    Cy_Crypto_Core_InvertEndianness(key.pubkey.x, bytesize);
-    Cy_Crypto_Core_InvertEndianness(key.pubkey.y, bytesize);
+    Cy_Cryptolite_InvertEndianness(key.pubkey.x, bytesize);
+    Cy_Cryptolite_InvertEndianness(key.pubkey.y, bytesize);
 
-    eddsa_ver_status = Cy_Crypto_Core_ED25519_Verify(crypto_obj.base, sig, buf, blen,
+    /*sha512 fp using mbedtls SHA512 library*/
+    shaFunctions.shactx = Cy_ed25519_sha512_ctx;
+    shaFunctions.sha_init = Cy_ed25519_sha512_init;
+    shaFunctions.sha_start = Cy_ed25519_sha512_start;
+    shaFunctions.sha_update = Cy_ed25519_sha512_update;
+    shaFunctions.sha_finish = Cy_ed25519_sha512_finish;
+    shaFunctions.sha_free = Cy_ed25519_sha512_free;
+
+    eddsa_ver_status = Cy_Cryptolite_ED25519_Init(CRYPTOLITE, &cfContext, eccBuffer, &shaFunctions);
+    MBEDTLS_MPI_CHK((eddsa_ver_status == CY_CRYPTOLITE_SUCCESS) ? 0 : MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED);
+
+    eddsa_ver_status = Cy_Cryptolite_ED25519_Verify(CRYPTOLITE, &cfContext, sig, buf, blen,
          &key, &stat, sig_type, ed_ctx, ed_ctx_len);
 
-    MBEDTLS_MPI_CHK((eddsa_ver_status != CY_CRYPTO_SUCCESS) ? MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED : 0);
+    /*De-init context*/
+    (void)Cy_Cryptolite_ED25519_Free(CRYPTOLITE, &cfContext);
+
+    MBEDTLS_MPI_CHK((eddsa_ver_status != CY_CRYPTOLITE_SUCCESS) ? MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED : 0);
 
     MBEDTLS_MPI_CHK((stat == 0xA1A1A1A1) ? 0 : MBEDTLS_ERR_ECP_VERIFY_FAILED);
 
 cleanup:
-    /* Realease the crypto hardware */
-    cy_hw_crypto_release(&crypto_obj);
 
+    if (eccBuffer != NULL)
+    {
+        mbedtls_platform_zeroize(eccBuffer, sizeof(cy_stc_cryptolite_ecc_buffer_t));
+        mbedtls_free(eccBuffer);
+    }
     if (point_arr != NULL)
     {
         mbedtls_platform_zeroize(point_arr, 2 * bytesize);
-        ifx_mbedtls_free(point_arr);
+        mbedtls_free(point_arr);
     }
-    if (sig_ptr != NULL)
+    if (sig != NULL)
     {
         mbedtls_platform_zeroize(sig, 2 * bytesize);
-        ifx_mbedtls_free(sig_ptr);
+        mbedtls_free(sig);
     }
 
     return( ret );
 }
 
 #endif //#if defined(MBEDTLS_EDDSA_ALT)
-#endif //#if defined (CY_IP_MXCRYPTO)
+#endif //#if defined(CY_IP_MXCRYPTOLITE)

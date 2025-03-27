@@ -28,7 +28,7 @@
 #define IFX_CRYPTOLITE_TRANSPARENT_MAC_H
 
 #include "ifx_cryptolite_config.h"
-#if defined(IFX_PSA_CRYPTOLITE_HMAC)
+#if defined(IFX_PSA_CRYPTOLITE_MAC)
 
 #include "ifx_cryptolite_common.h"
 
@@ -41,6 +41,15 @@ extern "C" {
 #endif
 
 #include "ifx_cryptolite_transparent_types.h"
+
+
+#if defined(IFX_PSA_CRYPTOLITE_HMAC)
+    #define IFX_PSA_CRYPTOLITE_MAC_SIZE CY_CRYPTOLITE_SHA256_HASH_SIZE
+#elif defined(IFX_PSA_CRYPTOLITE_CMAC)
+    #define IFX_PSA_CRYPTOLITE_MAC_SIZE CY_CRYPTOLITE_AES_BLOCK_SIZE
+#else
+    #define IFX_PSA_CRYPTOLITE_MAC_SIZE 16u
+#endif
 
 psa_status_t ifx_cryptolite_transparent_mac_compute(const psa_key_attributes_t *attributes,
                                         const uint8_t *key_buffer, size_t key_buffer_size,
@@ -65,6 +74,6 @@ psa_status_t ifx_cryptolite_transparent_mac_abort(ifx_cryptolite_transparent_mac
 
 #endif /* CY_IP_MXCRYPTOLITE */
 
-#endif /* IFX_PSA_CRYPTOLITE_HMAC */
+#endif /* IFX_PSA_CRYPTOLITE_MAC */
 
 #endif /* #if !defined (IFX_CRYPTOLITE_TRANSPARENT_MAC_H) */

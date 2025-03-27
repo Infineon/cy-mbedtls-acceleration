@@ -41,7 +41,11 @@
 extern "C" {
 #endif
 
-#if !defined(IFX_PSA_CRYPTOLITE_USE_STATIC_MEM)
+#if !defined(ifx_mxcryptolite_memset)
+#include <string.h>
+#define ifx_mxcryptolite_memset memset
+#endif
+#if !defined(IFX_PSA_CRYPTOLITE_USE_STATIC_MEM) && !defined(IFX_PSA_CRYPTOLITE_USE_STACK_MEM)
 
 #include <stdlib.h>
 #if !defined(ifx_mxcryptolite_malloc)
@@ -76,7 +80,7 @@ extern "C" {
 
 psa_status_t  ifx_cryptolite_status_to_psa_status (cy_en_cryptolite_status_t cryptolite_status);
 uint8_t ifx_psa_safer_memcmp(const uint8_t *a, const uint8_t *b, size_t n);
-
+psa_status_t ifx_psa_rsa_keylen_supported(uint32_t key_len);
 
 
 #if defined(__cplusplus)

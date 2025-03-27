@@ -441,6 +441,13 @@ static psa_status_t ifx_cryptolite_transparent_rsa_verify(const psa_key_attribut
     pubkey_mod_len = PSA_BITS_TO_BYTES(pub_key.moduloLength);
     pubkey_exp_len = PSA_BITS_TO_BYTES(pub_key.pubExpLength);
 
+    psa_status = ifx_psa_rsa_keylen_supported(pubkey_mod_len);
+    
+    if(psa_status!=PSA_SUCCESS)
+    {
+        return psa_status;
+    }
+
     if(pubkey_mod_len != signature_length)
     {
         return PSA_ERROR_INVALID_SIGNATURE;

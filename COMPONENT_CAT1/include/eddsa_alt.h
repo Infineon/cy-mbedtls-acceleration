@@ -38,6 +38,8 @@
 
 #if defined (CY_IP_MXCRYPTO)
     #include "eddsa_alt_mxcrypto.h"
+#elif defined (CY_IP_MXCRYPTOLITE)
+    #include "eddsa_alt_mxcryptolite.h"
 #else
     #error mbedTLS ALT for EDDSA is not supported
 #endif /* CY_IP_MXCRYPTO */

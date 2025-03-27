@@ -43,13 +43,22 @@ static psa_status_t ifx_mxcryptolite_transparent_psa_cipher_setup(ifx_cryptolite
     cy_en_cryptolite_status_t cy_status = CY_CRYPTOLITE_BAD_PARAMS;
     (void) key_buffer_size;
 
-    if((NULL==operation) || (NULL==attributes) || ((NULL==key_buffer) && (key_buffer_size > 0)))
+    if((NULL==operation))
+    {
+        return PSA_ERROR_INVALID_ARGUMENT;
+    }
+
+    operation->alg = PSA_ALG_NONE;
+    operation->mode = cipher_operation;
+
+    if((NULL==attributes))
     {
         return PSA_ERROR_INVALID_ARGUMENT;
     }
 
     key_type = psa_get_key_type(attributes);
     key_bits = psa_get_key_bits(attributes);
+    operation->iv_length = PSA_CIPHER_IV_LENGTH(key_type, alg);
 
     if(key_type != PSA_KEY_TYPE_AES)
     {
@@ -58,9 +67,14 @@ static psa_status_t ifx_mxcryptolite_transparent_psa_cipher_setup(ifx_cryptolite
 
     if(key_bits != 128)
     {
+        return PSA_ERROR_NOT_SUPPORTED;
+    }
+    
+    if ((NULL==key_buffer) && (key_buffer_size > 0))
+    {
         return PSA_ERROR_INVALID_ARGUMENT;
     }
-   
+
     switch (alg) {
         #if defined(IFX_PSA_CRYPTOLITE_ECB_NO_PADDING)
         case PSA_ALG_ECB_NO_PADDING:
@@ -111,9 +125,7 @@ static psa_status_t ifx_mxcryptolite_transparent_psa_cipher_setup(ifx_cryptolite
             return( PSA_ALG_IS_CIPHER( alg ) ? PSA_ERROR_NOT_SUPPORTED : PSA_ERROR_INVALID_ARGUMENT);
     }
     
-    operation->iv_length = PSA_CIPHER_IV_LENGTH(key_type, alg);
     operation->alg = alg;
-    operation->mode = cipher_operation;
 
     return ifx_cryptolite_status_to_psa_status(cy_status);
 }
@@ -433,7 +445,6 @@ psa_status_t ifx_cryptolite_transparent_cipher_finish(ifx_cryptolite_transparent
 
 psa_status_t ifx_cryptolite_transparent_cipher_abort(ifx_cryptolite_transparent_cipher_operation_t *operation)
 {
-    cy_en_cryptolite_status_t cy_status = CY_CRYPTOLITE_BAD_PARAMS;
 
     if(NULL==operation)
     {
@@ -447,14 +458,12 @@ psa_status_t ifx_cryptolite_transparent_cipher_abort(ifx_cryptolite_transparent_
         case PSA_ALG_CBC_NO_PADDING: 
         case PSA_ALG_CTR:
         case PSA_ALG_CFB:
-            cy_status = Cy_Cryptolite_Aes_Free(CRYPTOLITE, &operation->state.aes_state);
+            (void)Cy_Cryptolite_Aes_Free(CRYPTOLITE, &operation->state.aes_state);
             break;
         #endif
-        default:
-            return PSA_ERROR_INVALID_ARGUMENT;
     }
     
-    return ifx_cryptolite_status_to_psa_status(cy_status);
+    return PSA_SUCCESS;
 }
 
 /*******************************************************************************
@@ -507,6 +516,7 @@ psa_status_t ifx_cryptolite_transparent_cipher_encrypt(const psa_key_attributes_
     psa_status_t status = PSA_ERROR_CORRUPTION_DETECTED;
     ifx_cryptolite_transparent_cipher_operation_t operation;
     size_t update_output_length=0, finish_output_length=0;
+    ifx_mxcryptolite_memset(&operation,0,sizeof(ifx_cryptolite_transparent_cipher_operation_t));
 
     if((NULL==attributes) || ((NULL==key) && (key_length > 0))  || ((NULL==iv) && (iv_length > 0))
            || ((NULL==input) && (input_length > 0))  || ((NULL==output) && (output_size > 0)) || (NULL==output_length))
@@ -590,6 +600,7 @@ psa_status_t ifx_cryptolite_transparent_cipher_decrypt(const psa_key_attributes_
     psa_status_t status = PSA_ERROR_CORRUPTION_DETECTED;
     ifx_cryptolite_transparent_cipher_operation_t operation;
     size_t olength, accumulated_length=0;
+    ifx_mxcryptolite_memset(&operation,0,sizeof(ifx_cryptolite_transparent_cipher_operation_t));
 
     if((NULL==attributes) || ((NULL==key) && (key_length > 0)) 
            || ((NULL==input) && (input_length > 0))  || ((NULL==output) && (output_size > 0)) || (NULL==output_length))

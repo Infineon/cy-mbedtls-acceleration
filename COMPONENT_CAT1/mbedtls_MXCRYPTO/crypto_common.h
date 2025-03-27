@@ -32,35 +32,64 @@
 #define CRYPTO_COMMON_H
 
 #include "mbedtls/build_info.h"
-
-#if defined(MBEDTLS_PLATFORM_C)
+/* To use mbedtls platform defined memory functions define IFX_USE_MBEDTLS_PLATFORM_C
+   Otherwise stdlib memory functions are used. This abstraction allows user to allocate
+   separate memory region for acceleration drivers.
+*/
+#if defined(MBEDTLS_PLATFORM_C) && defined (IFX_USE_MBEDTLS_PLATFORM_C)
 #include "mbedtls/platform.h"
+#define ifx_mbedtls_malloc      mbedtls_malloc
+#define ifx_mbedtls_calloc      mbedtls_calloc
+#define ifx_mbedtls_free        mbedtls_free
+#define ifx_mbedtls_memcpy      mbedtls_memcpy
+#define ifx_mbedtls_memset      mbedtls_memset
+#define ifx_mbedtls_printf      mbedtls_printf
 #else
 #include <stdlib.h>
 #include <string.h>
-#define  mbedtls_calloc      calloc
-#define  mbedtls_free        free
-#define  mbedtls_memcpy      cy_hw_memcpy
-#define  mbedtls_memset      cy_hw_memset
-#endif
+#define ifx_mbedtls_calloc      calloc
+#define ifx_mbedtls_free        free
+#define ifx_mbedtls_memcpy      memcpy
+#define ifx_mbedtls_memset      memset
+#define ifx_mbedtls_printf      printf
+#endif //defined(MBEDTLS_PLATFORM_C) && defined (IFX_USE_MBEDTLS_PLATFORM_C) 
 
-#ifndef mbedtls_malloc
+#ifndef ifx_mbedtls_malloc
 #include <stdlib.h>
-#define mbedtls_malloc(...)  mbedtls_calloc(1, __VA_ARGS__)
+#define ifx_mbedtls_malloc(...)  ifx_mbedtls_calloc(1, __VA_ARGS__)
 #endif
-#ifndef  mbedtls_memcpy
+#ifndef  ifx_mbedtls_memcpy
 #include <string.h>
-#define  mbedtls_memcpy      memcpy
+#define  ifx_mbedtls_memcpy      memcpy
 #endif
-#ifndef  mbedtls_memset
+#ifndef  ifx_mbedtls_memset
 #include <string.h>
-#define  mbedtls_memset      memset
+#define  ifx_mbedtls_memset      memset
 #endif
 
 #include "cy_crypto_core.h"
 #include "mbedtls/private_access.h"
 
-#define DCACHE_LINE_ALIGNMENT_SIZE (32) // 32byte align
+/* Dcache related helper macros*/
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+#define CY_MBTLS_DCACHE_LINE_ALIGNMENT_SIZE     (32u) // 32byte align
+#define CY_MBTLS_IS_MEM_CACHABLE(x,y)           (Cy_Syslib_IsMemCacheable(MPU, (uint32_t)x, y))
+#define CY_MBTLS_IS_MEM_CACHE_ALIGNED(x,y)      ((((uint32_t)x % CY_CRYPTO_DCAHCE_PADDING_SIZE) == 0u) && ((uint32_t)y % CY_CRYPTO_DCAHCE_PADDING_SIZE == 0u))
+/* Check if memomry is cachable and algined to cache line OR memory is non-cachable */
+#define CY_MBTLS_IS_MEM_CACHABLE_ALIGNED(x,y)   ((CY_MBTLS_IS_MEM_CACHABLE(x,y) && CY_MBTLS_IS_MEM_CACHE_ALIGNED(x,y))||(!CY_MBTLS_IS_MEM_CACHABLE(x,y)))
+#else
+#define CY_MBTLS_DCACHE_LINE_ALIGNMENT_SIZE     (0u)
+#define CY_MBTLS_IS_MEM_CACHABLE(x,y)           (false)
+#define CY_MBTLS_IS_MEM_CACHE_ALIGNED(x,y)      (false)
+#define CY_MBTLS_IS_MEM_CACHABLE_ALIGNED(x,y)   (CY_MBTLS_IS_MEM_CACHABLE(x,y) && CY_MBTLS_IS_MEM_CACHE_ALIGNED(x,y))
+#endif
+
+#ifndef MBEDTLS_INTERNAL_VALIDATE_RET
+#define MBEDTLS_INTERNAL_VALIDATE_RET(cond, ret)  do { } while (0)
+#endif
+#ifndef MBEDTLS_INTERNAL_VALIDATE
+#define MBEDTLS_INTERNAL_VALIDATE(cond)           do { } while (0)
+#endif
 
 typedef enum
 {

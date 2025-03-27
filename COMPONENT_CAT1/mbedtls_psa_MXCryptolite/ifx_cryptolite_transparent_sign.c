@@ -279,8 +279,8 @@ static psa_status_t ifx_cryptolite_transparent_ecdsa_sign(const psa_key_attribut
         Cy_Cryptolite_Vu_memcpy(pkey_ptr, key_buffer, bytesize);
         Cy_Cryptolite_InvertEndianness(pkey_ptr, bytesize);
 
-        Cy_Cryptolite_Vu_memcpy(hash_ptr, hash, IFX_PSA_CRYPTOLITE_MAX_SHA_HASH_SIZE);
-        Cy_Cryptolite_InvertEndianness(hash_ptr, IFX_PSA_CRYPTOLITE_MAX_SHA_HASH_SIZE);
+        Cy_Cryptolite_Vu_memcpy(hash_ptr, hash, hash_length);
+        Cy_Cryptolite_InvertEndianness(hash_ptr, hash_length);
 
         key.type = PK_PRIVATE;
         key.k = pkey_ptr;
@@ -460,6 +460,13 @@ static psa_status_t ifx_cryptolite_transparent_rsa_sign(const psa_key_attributes
 
     pubkey_mod_len = PSA_BITS_TO_BYTES(priv_key.moduloLength);
     pubkey_exp_len = PSA_BITS_TO_BYTES(priv_key.pubExpLength);
+
+    psa_status = ifx_psa_rsa_keylen_supported(pubkey_mod_len);
+    
+    if(psa_status != PSA_SUCCESS)
+    {
+        return psa_status;
+    }
 
     if(signature_size < pubkey_mod_len)
     {
@@ -652,7 +659,7 @@ psa_status_t ifx_cryptolite_transparent_sign_message(const psa_key_attributes_t 
     key_type = psa_get_key_type(attributes);
 
 #if defined(IFX_PSA_CRYPTOLITE_SHA)
-    if((PSA_KEY_TYPE_IS_RSA( key_type ) &&  PSA_ALG_IS_RSA_PKCS1V15_SIGN( alg )) || PSA_KEY_TYPE_IS_ECC( key_type) )
+    if((PSA_KEY_TYPE_IS_RSA( key_type ) &&  PSA_ALG_IS_RSA_PKCS1V15_SIGN( alg )) || (PSA_KEY_TYPE_IS_ECC( key_type) && !PSA_ALG_ECDSA_IS_DETERMINISTIC( alg )))
     {
         psa_status = ifx_cryptolite_transparent_hash_compute(PSA_ALG_SIGN_GET_HASH( alg ), input, input_length, hash, hash_size, &hash_length);
     }

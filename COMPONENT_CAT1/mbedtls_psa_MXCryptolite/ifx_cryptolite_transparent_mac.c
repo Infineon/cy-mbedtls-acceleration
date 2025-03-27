@@ -8,7 +8,7 @@
 ********************************************************************************
 *  Copyright The Mbed TLS Contributors
 
-* Copyright (C) 2022 Cypress Semiconductor Corporation
+* Copyright (C) 2024 Cypress Semiconductor Corporation
 * SPDX-License-Identifier: Apache-2.0
 *
 * Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -25,7 +25,7 @@
 *******************************************************************************/
 
 #include "ifx_cryptolite_transparent_mac.h"
-#if defined(IFX_PSA_CRYPTOLITE_HMAC)
+#if defined(IFX_PSA_CRYPTOLITE_MAC)
 
 #if defined (CY_IP_MXCRYPTOLITE)
 
@@ -72,51 +72,31 @@ psa_status_t ifx_cryptolite_transparent_mac_compute(const psa_key_attributes_t *
                                         psa_algorithm_t alg, const uint8_t *input, size_t input_length,
                                         uint8_t *mac, size_t mac_size, size_t *mac_length)
 {
-    size_t mac_tmp_length = CY_CRYPTOLITE_SHA256_HASH_SIZE;
-    cy_stc_cryptolite_context_hmac_sha256_t hmac_ctx;
-    cy_en_cryptolite_status_t cy_status = CY_CRYPTOLITE_BAD_PARAMS;
-    uint8_t cal_mac[CY_CRYPTOLITE_SHA256_HASH_SIZE];
-    uint8_t *mac_ptr= mac;
+    psa_status_t status = PSA_ERROR_CORRUPTION_DETECTED;
 
-    if( (NULL==attributes) || ((NULL == key_buffer) && (0 != key_buffer_size)) || ((NULL == input) && (input_length > 0)) ||  (NULL==mac) || (NULL==mac_length))
+    ifx_cryptolite_transparent_mac_operation_t operation;
+    ifx_mxcryptolite_memset(&operation,0,sizeof(ifx_cryptolite_transparent_mac_operation_t));
+
+    if( (NULL==attributes) || ((NULL==key_buffer) && (0!=key_buffer_size)) || ((NULL == input) && (input_length > 0)) ||  (NULL==mac) || (NULL==mac_length))
     {
         return PSA_ERROR_INVALID_ARGUMENT;
     }
 
-    if((0 == PSA_ALG_IS_HMAC(alg)) || (PSA_KEY_TYPE_HMAC != psa_get_key_type(attributes)))
-    {	
-        return PSA_ERROR_NOT_SUPPORTED;
-    }
-    
-    if(PSA_ALG_SHA_256 != PSA_ALG_HMAC_GET_HASH(alg))
+    status = ifx_cryptolite_transparent_mac_sign_setup(&operation, attributes, key_buffer, key_buffer_size, alg);
+
+    if(status == PSA_SUCCESS)
     {
-        return PSA_ERROR_NOT_SUPPORTED;
-    }
-    
-    if((PSA_MAC_TRUNCATED_LENGTH(alg) > 0) && (PSA_MAC_TRUNCATED_LENGTH(alg) < mac_tmp_length))	
-    {
-        mac_tmp_length = PSA_MAC_TRUNCATED_LENGTH(alg);
-        mac_ptr = cal_mac;
+        status = ifx_cryptolite_transparent_mac_update(&operation, input, input_length);
     }
 
-    if(mac_size < mac_tmp_length)
+    if(status == PSA_SUCCESS)
     {
-      return PSA_ERROR_BUFFER_TOO_SMALL;
+        status = ifx_cryptolite_transparent_mac_sign_finish(&operation, mac, mac_size, mac_length);
     }
-    
-    cy_status  = Cy_Cryptolite_Hmac_Sha256_Run(CRYPTOLITE, key_buffer, (uint32_t)key_buffer_size, input, (uint32_t)input_length,  mac_ptr, &hmac_ctx);
 
-    if(CY_CRYPTOLITE_SUCCESS == cy_status)
-    {
-        if(mac_tmp_length < CY_CRYPTOLITE_SHA256_HASH_SIZE)
-        {
-            Cy_Cryptolite_Setnumber(mac, (uint8_t *)mac_ptr, mac_tmp_length);
+    (void)ifx_cryptolite_transparent_mac_abort(&operation);
 
-        }
-        *mac_length = mac_tmp_length;
-    }
-    
-    return ifx_cryptolite_status_to_psa_status(cy_status);
+    return status;
 }
   
 /*******************************************************************************
@@ -157,7 +137,7 @@ psa_status_t ifx_cryptolite_transparent_mac_verify(const psa_key_attributes_t *a
                                        const uint8_t *input, size_t input_length,
                                        const uint8_t *mac, size_t mac_length)
 {
-    uint8_t verify_mac[CY_CRYPTOLITE_SHA256_HASH_SIZE];
+    uint8_t verify_mac[IFX_PSA_CRYPTOLITE_MAC_SIZE];
     size_t verify_mac_size = sizeof(verify_mac)/sizeof(verify_mac[0]);
     size_t verify_mac_length = 0;
     psa_status_t status = PSA_ERROR_BAD_STATE;
@@ -183,6 +163,72 @@ psa_status_t ifx_cryptolite_transparent_mac_verify(const psa_key_attributes_t *a
 }
   
   
+
+#if defined(IFX_PSA_CRYPTOLITE_HMAC)
+static psa_status_t  ifx_cryptolite_transparent_hmac_setup(ifx_cryptolite_transparent_mac_operation_t *operation, const psa_key_attributes_t *attributes, const uint8_t *key_buffer, size_t key_buffer_size, psa_algorithm_t alg)
+
+{
+    cy_en_cryptolite_status_t cy_status = CY_CRYPTOLITE_BAD_PARAMS;
+
+    if(PSA_KEY_TYPE_HMAC != psa_get_key_type(attributes))
+    {	
+        return PSA_ERROR_INVALID_ARGUMENT;
+    }
+
+    if(PSA_ALG_SHA_256 != PSA_ALG_HMAC_GET_HASH(alg))
+    {
+        return PSA_ERROR_NOT_SUPPORTED;
+    }
+    
+    operation->mac_type = alg;
+    
+    cy_status  = Cy_Cryptolite_Hmac_Sha256_Init(CRYPTOLITE, &operation->hmac_context);
+    if (CY_CRYPTOLITE_SUCCESS == cy_status)
+    {
+        cy_status  = Cy_Cryptolite_Hmac_Sha256_Start(CRYPTOLITE, key_buffer, key_buffer_size, &operation->hmac_context);
+    }
+
+    return ifx_cryptolite_status_to_psa_status(cy_status);
+
+}
+#endif
+
+
+#if defined(IFX_PSA_CRYPTOLITE_CMAC)
+static psa_status_t  ifx_cryptolite_transparent_cmac_setup(ifx_cryptolite_transparent_mac_operation_t *operation, const psa_key_attributes_t *attributes, const uint8_t *key_buffer, size_t key_buffer_size, psa_algorithm_t alg)
+
+{
+    cy_en_cryptolite_status_t cy_status = CY_CRYPTOLITE_BAD_PARAMS;
+    size_t key_bits = psa_get_key_bits(attributes);
+    (void) key_buffer_size;
+
+    if(PSA_KEY_TYPE_AES != psa_get_key_type(attributes))
+    {	
+        return PSA_ERROR_NOT_SUPPORTED;
+    }
+
+    if(key_bits != 128)
+    {
+         return PSA_ERROR_NOT_SUPPORTED ;
+    }
+
+    operation->mac_type = alg;
+
+    cy_status  = Cy_Cryptolite_Cmac_Init(CRYPTOLITE,
+                                        key_buffer,
+                                        &operation->cmac_state,
+                                        &operation->cmac_buffer);
+
+    if (CY_CRYPTOLITE_SUCCESS == cy_status)
+    {
+        cy_status  = Cy_Cryptolite_Cmac_Start(CRYPTOLITE, &operation->cmac_state);
+    }
+
+    return ifx_cryptolite_status_to_psa_status(cy_status);
+
+}
+#endif
+
 /*******************************************************************************
 * Function Name: ifx_cryptolite_transparent_mac_sign_setup
 ****************************************************************************//**
@@ -211,34 +257,37 @@ psa_status_t ifx_cryptolite_transparent_mac_verify(const psa_key_attributes_t *a
 *******************************************************************************/  
 psa_status_t  ifx_cryptolite_transparent_mac_sign_setup(ifx_cryptolite_transparent_mac_operation_t *operation, const psa_key_attributes_t *attributes, const uint8_t *key_buffer, size_t key_buffer_size, psa_algorithm_t alg)
 {
-    cy_en_cryptolite_status_t cy_status = CY_CRYPTOLITE_BAD_PARAMS;
-  
-    if((NULL==operation) || (NULL==attributes) || ((NULL==key_buffer) && (0 !=key_buffer_size)))
+
+    psa_status_t status = PSA_ERROR_CORRUPTION_DETECTED;
+
+    if((NULL==operation) || (NULL==attributes) || ((NULL==key_buffer) && (0 != key_buffer_size)))
     {
         return PSA_ERROR_INVALID_ARGUMENT;
-    }
-    
-    if((0 == PSA_ALG_IS_HMAC(alg)) || (PSA_KEY_TYPE_HMAC != psa_get_key_type(attributes)))
-    {	
-        return PSA_ERROR_INVALID_ARGUMENT;
-    }
-      
-    if(PSA_ALG_SHA_256 != PSA_ALG_HMAC_GET_HASH(alg))
-    {
-        return PSA_ERROR_NOT_SUPPORTED;
-    }
-    
-    operation->mac_type = alg;
-    
-    cy_status  = Cy_Cryptolite_Hmac_Sha256_Init(CRYPTOLITE, &operation->hmac_context);
-    if (CY_CRYPTOLITE_SUCCESS == cy_status)
-    {
-        cy_status  = Cy_Cryptolite_Hmac_Sha256_Start(CRYPTOLITE, key_buffer, key_buffer_size, &operation->hmac_context);
     }
 
-    return ifx_cryptolite_status_to_psa_status(cy_status);
+    #if defined(IFX_PSA_CRYPTOLITE_HMAC)
+    if (PSA_ALG_IS_HMAC(alg))
+    {
+        status = ifx_cryptolite_transparent_hmac_setup(operation, attributes, key_buffer, key_buffer_size, alg);
+    }else
+    #endif
+
+    #if defined(IFX_PSA_CRYPTOLITE_CMAC)
+    if (PSA_ALG_FULL_LENGTH_MAC(alg) == PSA_ALG_CMAC)
+    {
+        status = ifx_cryptolite_transparent_cmac_setup(operation, attributes, key_buffer, key_buffer_size, alg);
+    }else
+    #endif
+    {
+        (void) operation;
+        (void) attributes;
+        (void) key_buffer;
+        (void) key_buffer_size;
+        status = PSA_ERROR_NOT_SUPPORTED;
+    }
+
+    return status;
 }
-  
 /*******************************************************************************
 * Function Name: ifx_cryptolite_transparent_mac_verify_setup
 ****************************************************************************//**
@@ -294,6 +343,7 @@ psa_status_t  ifx_cryptolite_transparent_mac_verify_setup(ifx_cryptolite_transpa
 psa_status_t ifx_cryptolite_transparent_mac_update(ifx_cryptolite_transparent_mac_operation_t *operation, const uint8_t *input, size_t input_length)
 {
     cy_en_cryptolite_status_t cy_status = CY_CRYPTOLITE_BAD_PARAMS;
+    psa_status_t status = PSA_ERROR_CORRUPTION_DETECTED;
 
     if((NULL == operation) || ((NULL == input) && (input_length != 0)))
     {
@@ -305,14 +355,34 @@ psa_status_t ifx_cryptolite_transparent_mac_update(ifx_cryptolite_transparent_ma
         return PSA_SUCCESS;
     }
     
-    if(!PSA_ALG_IS_HMAC(operation->mac_type))
-    {	
-        return PSA_ERROR_INVALID_ARGUMENT;
+    #if defined(IFX_PSA_CRYPTOLITE_HMAC)
+    if (PSA_ALG_IS_HMAC(operation->mac_type))
+    {
+        cy_status = Cy_Cryptolite_Hmac_Sha256_Update(CRYPTOLITE, input, (uint32_t)input_length,  &operation->hmac_context);
+
+        status = ifx_cryptolite_status_to_psa_status(cy_status);
+    }else
+    #endif
+
+    #if defined(IFX_PSA_CRYPTOLITE_CMAC)
+    if (PSA_ALG_FULL_LENGTH_MAC(operation->mac_type) == PSA_ALG_CMAC)
+    {
+        cy_status = Cy_Cryptolite_Cmac_Update(CRYPTOLITE, input, (uint32_t)input_length,&operation->cmac_state);
+                                                
+        status = ifx_cryptolite_status_to_psa_status(cy_status);
+    }else
+    #endif
+
+    {
+        (void) operation;
+        (void) input;
+        (void) input_length;
+        (void) cy_status;
+        status = PSA_ERROR_NOT_SUPPORTED;
     }
     
-    cy_status = Cy_Cryptolite_Hmac_Sha256_Update(CRYPTOLITE, input, (uint32_t)input_length,  &operation->hmac_context);
-    
-    return ifx_cryptolite_status_to_psa_status(cy_status);
+
+    return status;
 }
  
 /*******************************************************************************
@@ -340,10 +410,12 @@ psa_status_t ifx_cryptolite_transparent_mac_update(ifx_cryptolite_transparent_ma
 psa_status_t ifx_cryptolite_transparent_mac_sign_finish(ifx_cryptolite_transparent_mac_operation_t *operation, uint8_t *mac, size_t mac_size, size_t *mac_length)
 {
  
-    size_t mac_tmp_length = CY_CRYPTOLITE_SHA256_HASH_SIZE;
+    size_t mac_tmp_length = 0;
     cy_en_cryptolite_status_t cy_status = CY_CRYPTOLITE_BAD_PARAMS;
-    uint8_t cal_mac[CY_CRYPTOLITE_SHA256_HASH_SIZE];
+    uint8_t cal_mac[IFX_PSA_CRYPTOLITE_MAC_SIZE];
     uint8_t *mac_ptr = mac;
+    bool is_mac_truncated;
+    psa_status_t status = PSA_ERROR_CORRUPTION_DETECTED;
 
     if((NULL==operation) || (NULL==mac)  || (NULL==mac_length))
     {
@@ -352,39 +424,78 @@ psa_status_t ifx_cryptolite_transparent_mac_sign_finish(ifx_cryptolite_transpare
     
     if (0 == mac_size)
     {
-       return PSA_ERROR_BUFFER_TOO_SMALL;
+        return PSA_ERROR_BUFFER_TOO_SMALL;
     }
+        
+    #if defined(IFX_PSA_CRYPTOLITE_HMAC)
+    if (PSA_ALG_IS_HMAC(operation->mac_type))
+    {
+        mac_tmp_length = CY_CRYPTOLITE_SHA256_HASH_SIZE;
+    }else
+    #endif
 
-    if(!PSA_ALG_IS_HMAC(operation->mac_type))
-    {	
-        return PSA_ERROR_INVALID_ARGUMENT;
+    #if defined(IFX_PSA_CRYPTOLITE_CMAC)
+    if (PSA_ALG_FULL_LENGTH_MAC(operation->mac_type) == PSA_ALG_CMAC)
+    {
+        mac_tmp_length = CY_CRYPTOLITE_AES_BLOCK_SIZE;
+    }else
+    #endif
+    {
+        (void) operation;
+        (void) mac;
+        (void) mac_size;
+        (void) mac_length;
+        (void) mac_tmp_length;
+        (void) cy_status;
+        (void) cal_mac;
+        (void) mac_ptr;
+        (void) is_mac_truncated;        
+        (void) status;        
+
+        return PSA_ERROR_NOT_SUPPORTED;
     }
 
     if((PSA_MAC_TRUNCATED_LENGTH(operation->mac_type) > 0) && (PSA_MAC_TRUNCATED_LENGTH(operation->mac_type) < mac_tmp_length))	
     {
         mac_tmp_length = PSA_MAC_TRUNCATED_LENGTH(operation->mac_type);
         mac_ptr = cal_mac;
+        is_mac_truncated = true;
     }
 
     if(mac_size < mac_tmp_length)
     {
-      return PSA_ERROR_BUFFER_TOO_SMALL;
+        return PSA_ERROR_BUFFER_TOO_SMALL;
     }
-    
 
-    cy_status =  Cy_Cryptolite_Hmac_Sha256_Finish(CRYPTOLITE, mac_ptr, &operation->hmac_context);
+    #if defined(IFX_PSA_CRYPTOLITE_HMAC)
+    if (PSA_ALG_IS_HMAC(operation->mac_type))
+    {
+        cy_status =  Cy_Cryptolite_Hmac_Sha256_Finish(CRYPTOLITE, mac_ptr, &operation->hmac_context);
+        status = ifx_cryptolite_status_to_psa_status(cy_status);
+    }
+    #endif
+
+    #if defined(IFX_PSA_CRYPTOLITE_CMAC)
+    if (PSA_ALG_FULL_LENGTH_MAC(operation->mac_type) == PSA_ALG_CMAC)
+    {
+        cy_status =  Cy_Cryptolite_Cmac_Finish(CRYPTOLITE, mac_ptr, &operation->cmac_state);
+        status = ifx_cryptolite_status_to_psa_status(cy_status);
+    }
+    #endif
 
     if(CY_CRYPTOLITE_SUCCESS == cy_status)
     {
-        if(mac_tmp_length < CY_CRYPTOLITE_SHA256_HASH_SIZE)
+        if(is_mac_truncated)
         {
-            Cy_Cryptolite_Setnumber(mac, (uint8_t *)mac_ptr, mac_tmp_length);
+            Cy_Cryptolite_Setnumber(mac, mac_ptr, mac_tmp_length);
 
         }            
         
         *mac_length = mac_tmp_length;
     }
+
     return ifx_cryptolite_status_to_psa_status(cy_status); 
+
 }
  
 /*******************************************************************************
@@ -409,7 +520,7 @@ psa_status_t ifx_cryptolite_transparent_mac_sign_finish(ifx_cryptolite_transpare
 psa_status_t ifx_cryptolite_transparent_mac_verify_finish(ifx_cryptolite_transparent_mac_operation_t *operation, const uint8_t *mac, size_t mac_length)
 {
     psa_status_t status = PSA_ERROR_BAD_STATE;
-    uint8_t verify_mac[CY_CRYPTOLITE_SHA256_HASH_SIZE];
+    uint8_t verify_mac[IFX_PSA_CRYPTOLITE_MAC_SIZE];
     size_t verify_mac_size = sizeof(verify_mac)/sizeof(verify_mac[0]);
     size_t verify_mac_length = 0;
     
@@ -449,7 +560,6 @@ psa_status_t ifx_cryptolite_transparent_mac_verify_finish(ifx_cryptolite_transpa
 *******************************************************************************/  
 psa_status_t ifx_cryptolite_transparent_mac_abort(ifx_cryptolite_transparent_mac_operation_t *operation)
 {
-
     cy_en_cryptolite_status_t cy_status = CY_CRYPTOLITE_BAD_PARAMS;
   
     if(NULL == operation)
@@ -457,14 +567,32 @@ psa_status_t ifx_cryptolite_transparent_mac_abort(ifx_cryptolite_transparent_mac
        return PSA_ERROR_INVALID_ARGUMENT;
     }
     
-    if ( (PSA_ALG_SHA_256 != PSA_ALG_HMAC_GET_HASH(operation->mac_type)) || (0 == operation->mac_type)) 
+    if (0 == operation->mac_type)
     {
         return PSA_ERROR_BAD_STATE; 
     }
 
-    cy_status = Cy_Cryptolite_Hmac_Sha256_Free(CRYPTOLITE, &operation->hmac_context);
+    #if defined(IFX_PSA_CRYPTOLITE_HMAC)
+    if (PSA_ALG_IS_HMAC(operation->mac_type))
+    {
+        cy_status = Cy_Cryptolite_Hmac_Sha256_Free(CRYPTOLITE, &operation->hmac_context);
+    }else
+    #endif
+
+    #if defined(IFX_PSA_CRYPTOLITE_CMAC)
+    if (PSA_ALG_FULL_LENGTH_MAC(operation->mac_type) == PSA_ALG_CMAC)
+    {
+        cy_status = Cy_Cryptolite_Cmac_Free(CRYPTOLITE, &operation->cmac_state);
+    }else
+    #endif
+    {
+        (void) cy_status; 
+        return PSA_ERROR_NOT_SUPPORTED;
+    }
+
+
     return ifx_cryptolite_status_to_psa_status(cy_status);
 }
 
 #endif /* defined (CY_IP_MXCRYPTOLITE) */
-#endif /* defined(IFX_PSA_CRYPTOLITE_HMAC)*/
+#endif /* defined(IFX_PSA_CRYPTOLITE_MAC)*/

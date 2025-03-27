@@ -34,22 +34,26 @@
 
 #include "crypto_common.h"
 
-#define SHA256_DCACHE_BUFFER_SIZE  (64)
+//#define SHA256_DCACHE_BUFFER_SIZE  (64)
 
 #if defined(MBEDTLS_SHA256_ALT)
 
 typedef struct mbedtls_sha256_context {
     cy_cmgr_crypto_hw_t MBEDTLS_PRIVATE(obj);
-    cy_stc_crypto_sha_state_t MBEDTLS_PRIVATE(hashState);           /* Structure used by CY Crypto Driver   */
-    #if (CY_IP_MXCRYPTO_VERSION == 1u)
-    cy_stc_crypto_v1_sha256_buffers_t MBEDTLS_PRIVATE(shaBuffers);  /* Structure used by CY Crypto Driver   */
-    #else
-    cy_stc_crypto_v2_sha256_buffers_t MBEDTLS_PRIVATE(shaBuffers);  /* Structure used by CY Crypto Driver   */
-    #endif
-    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
-    uint8_t output_array[SHA256_DCACHE_BUFFER_SIZE];
+    uint8_t MBEDTLS_PRIVATE(hashState_t[CY_CRYPTO_ALIGN_CACHE_LINE(sizeof(cy_stc_crypto_sha_state_t))+CY_CRYPTO_DCAHCE_PADDING_SIZE]);         /* Structure used by CY Crypto Driver   */
+    cy_stc_crypto_sha_state_t* MBEDTLS_PRIVATE(hashState);
+#if (CY_IP_MXCRYPTO_VERSION == 1u)
+    uint8_t MBEDTLS_PRIVATE(shaBuffers_t[CY_CRYPTO_ALIGN_CACHE_LINE(sizeof(cy_stc_crypto_v1_sha256_buffers_t))+CY_CRYPTO_DCAHCE_PADDING_SIZE]);         /* Structure used by CY Crypto Driver   */
+    cy_stc_crypto_v1_sha256_buffers_t* MBEDTLS_PRIVATE(shaBuffers);
+#else
+    uint8_t MBEDTLS_PRIVATE(shaBuffers_t[CY_CRYPTO_ALIGN_CACHE_LINE(sizeof(cy_stc_crypto_v2_sha256_buffers_t))+CY_CRYPTO_DCAHCE_PADDING_SIZE]);         /* Structure used by CY Crypto Driver   */
+    cy_stc_crypto_v2_sha256_buffers_t* MBEDTLS_PRIVATE(shaBuffers);
+#endif
+
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    uint8_t output_array[CY_CRYPTO_ALIGN_CACHE_LINE(32)+CY_CRYPTO_DCAHCE_PADDING_SIZE];
     uint8_t* output_array_ptr;
-    #endif
+#endif
 }
 mbedtls_sha256_context;
 

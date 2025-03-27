@@ -65,8 +65,10 @@
 typedef struct mbedtls_aes_context
 {
     cy_cmgr_crypto_hw_t MBEDTLS_PRIVATE(obj);
-    cy_stc_crypto_aes_state_t MBEDTLS_PRIVATE(aes_state);
-    cy_stc_crypto_aes_buffers_t MBEDTLS_PRIVATE(aes_buffers);
+    uint8_t MBEDTLS_PRIVATE(aes_state_t[CY_CRYPTO_ALIGN_CACHE_LINE(sizeof(cy_stc_crypto_aes_state_t))+CY_CRYPTO_DCAHCE_PADDING_SIZE]);
+    uint8_t MBEDTLS_PRIVATE(aes_buffers_t[CY_CRYPTO_ALIGN_CACHE_LINE(sizeof(cy_stc_crypto_aes_buffers_t))+CY_CRYPTO_DCAHCE_PADDING_SIZE]);
+    cy_stc_crypto_aes_state_t* MBEDTLS_PRIVATE(aes_state);
+    cy_stc_crypto_aes_buffers_t* MBEDTLS_PRIVATE(aes_buffers);
 #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
     uint8_t input_array[AES_DCACHE_BUFFER_SIZE];
     uint8_t output_array[AES_DCACHE_BUFFER_SIZE];

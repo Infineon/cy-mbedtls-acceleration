@@ -51,13 +51,14 @@
 
 #if defined(MBEDTLS_AES_ALT)
 
+#include "cy_cryptolite_common.h"
+
 /* Parameter validation macros based on platform_util.h */
 #define AES_VALIDATE_RET( cond )    \
     MBEDTLS_INTERNAL_VALIDATE_RET( cond, MBEDTLS_ERR_AES_BAD_INPUT_DATA )
 #define AES_VALIDATE( cond )        \
     MBEDTLS_INTERNAL_VALIDATE( cond )
 
-#include "cy_cryptolite_common.h"
 
 
 void mbedtls_aes_init( mbedtls_aes_context *ctx )

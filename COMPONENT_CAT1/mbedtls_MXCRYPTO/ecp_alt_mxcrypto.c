@@ -72,15 +72,6 @@
 #define ECP_VALIDATE( cond )        \
     MBEDTLS_INTERNAL_VALIDATE( cond )
 
-#if defined(MBEDTLS_PLATFORM_C)
-#include "mbedtls/platform.h"
-#else
-#include <stdlib.h>
-#include <stdio.h>
-#define mbedtls_printf     printf
-#define mbedtls_calloc    calloc
-#define mbedtls_free       free
-#endif
 
 #include "crypto_common.h"
 
@@ -352,7 +343,7 @@ void mbedtls_ecp_group_free( mbedtls_ecp_group *grp )
     {
         for( i = 0; i < grp->T_size; i++ )
             mbedtls_ecp_point_free( &grp->T[i] );
-        mbedtls_free( grp->T );
+        ifx_mbedtls_free( grp->T );
     }
 
     mbedtls_platform_zeroize( grp, sizeof( mbedtls_ecp_group ) );
@@ -1242,20 +1233,25 @@ static int ecp_mul_comb( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
     #define biL                 (ciL << 3)                       /* bits  in limb  */
     #define BITS_TO_LIMBS(i)    ((i) / biL + ((i) % biL != 0))
     uint32_t data_size = BITS_TO_LIMBS(grp->pbits);
-    size_t param_byte_size = CY_CRYPTO_BYTE_SIZE_OF_BITS(grp->pbits);
     int ret;
 
     /* Suppress warnings for unused input parameters */
     (void)rs_ctx;
-    (void)param_byte_size;
+    //(void)param_byte_size;
 
-    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
-        uint8_t *PiXp_data = NULL;
-        uint8_t *PiYp_data = NULL;
-        uint8_t *dip_data  = NULL;
-        uint8_t *RXp_data  = NULL;
-        uint8_t *RYp_data  = NULL;
-    #endif
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    uint8_t *PiXp_data = NULL;
+    uint8_t *PiYp_data = NULL;
+    uint8_t *dip_data  = NULL;
+    uint8_t *RXp_data  = NULL;
+    uint8_t *RYp_data  = NULL;
+	uint8_t *aligned_PiXp_data = NULL;
+	uint8_t *aligned_PiYp_data = NULL;
+	uint8_t *aligned_dip_data = NULL;
+	uint8_t *aligned_RXp_data = NULL;
+	uint8_t *aligned_RYp_data = NULL;
+    size_t param_byte_size = CY_CRYPTO_BYTE_SIZE_OF_BITS(grp->pbits);
+#endif
 
     mbedtls_mpi di;
     mbedtls_ecp_point Pi;
@@ -1287,49 +1283,69 @@ static int ecp_mul_comb( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
     MBEDTLS_MPI_CHK( mbedtls_mpi_grow(&R->X, data_size) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_grow(&R->Y, data_size) );
 
-
-
 #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    param_byte_size = CY_CRYPTO_BYTE_SIZE_OF_BITS(grp->pbits);
 
-    if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)Pi.X.p, param_byte_size) && ((size_t)Pi.X.p % DCACHE_LINE_ALIGNMENT_SIZE != 0 || param_byte_size % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
-    {    
+	aligned_PiXp_data = (uint8_t *)Pi.X.p;
+	aligned_PiYp_data = (uint8_t *)Pi.Y.p;
+	aligned_dip_data = (uint8_t *)di.p;
+	aligned_RXp_data = (uint8_t *)R->X.p;
+	aligned_RYp_data = (uint8_t *)R->Y.p;
 
-        PiXp_data = (uint8_t *)malloc (param_byte_size  + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+    if( !CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)Pi.X.p, param_byte_size))
+	{
+        PiXp_data = (uint8_t *)ifx_mbedtls_malloc(CY_CRYPTO_ALIGN_CACHE_LINE(param_byte_size)+CY_CRYPTO_DCAHCE_PADDING_SIZE);
         MBEDTLS_MPI_CHK((PiXp_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
-
-        PiYp_data = (uint8_t *)malloc (param_byte_size + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+        aligned_PiXp_data = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)(PiXp_data));
+        MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary_le( &Pi.X, aligned_PiXp_data, param_byte_size ) );
+	}
+    if( !CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)Pi.Y.p, param_byte_size))
+	{
+        PiYp_data = (uint8_t *)ifx_mbedtls_malloc(CY_CRYPTO_ALIGN_CACHE_LINE(param_byte_size)+CY_CRYPTO_DCAHCE_PADDING_SIZE);
         MBEDTLS_MPI_CHK((PiYp_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
-
-        dip_data = (uint8_t *)malloc  (param_byte_size+ (2*DCACHE_LINE_ALIGNMENT_SIZE));
+        aligned_PiYp_data = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)(PiYp_data));
+        MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary_le( &Pi.Y, aligned_PiYp_data, param_byte_size ) );
+	}
+    if( !CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)di.p, param_byte_size))
+	{
+        dip_data = (uint8_t *)ifx_mbedtls_malloc(CY_CRYPTO_ALIGN_CACHE_LINE(param_byte_size)+CY_CRYPTO_DCAHCE_PADDING_SIZE);
         MBEDTLS_MPI_CHK((dip_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
-
-        RXp_data = (uint8_t *)malloc  (param_byte_size + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+        aligned_dip_data = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)(dip_data));
+        MBEDTLS_MPI_CHK( mbedtls_mpi_write_binary_le( &di, aligned_dip_data, param_byte_size ) );
+	}
+    if( !CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)R->X.p, param_byte_size))
+	{
+        RXp_data = (uint8_t *)ifx_mbedtls_malloc(CY_CRYPTO_ALIGN_CACHE_LINE(param_byte_size)+CY_CRYPTO_DCAHCE_PADDING_SIZE);
         MBEDTLS_MPI_CHK((RXp_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
-
-        RYp_data = (uint8_t *)malloc  (param_byte_size + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+        aligned_RXp_data = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)(RXp_data));
+	}
+    if( !CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)R->Y.p, param_byte_size))
+	{
+        RYp_data = (uint8_t *)ifx_mbedtls_malloc(CY_CRYPTO_ALIGN_CACHE_LINE(param_byte_size)+CY_CRYPTO_DCAHCE_PADDING_SIZE);
         MBEDTLS_MPI_CHK((RYp_data == NULL) ? MBEDTLS_ERR_ECP_ALLOC_FAILED : 0);
-          
-        uint8_t *aligned_PiXp_data = (uint8_t*)((size_t)(PiXp_data) + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)PiXp_data & 0x1F)));
-        uint8_t *aligned_PiYp_data = (uint8_t*)((size_t)(PiYp_data) + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)PiYp_data & 0x1F)));
-        uint8_t *aligned_dip_data = (uint8_t*)((size_t)(dip_data) + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)dip_data & 0x1F)));
-        uint8_t *aligned_RXp_data = (uint8_t*)((size_t)(RXp_data) + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)RXp_data & 0x1F)));
-        uint8_t *aligned_RYp_data = (uint8_t*)((size_t)(RYp_data) + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)RYp_data & 0x1F)));
-        
-        
-        memcpy((void *)aligned_PiXp_data, (void *)Pi.X.p, param_byte_size);
-        memcpy((void *)aligned_PiYp_data, (void *)Pi.Y.p, param_byte_size);
-        memcpy((void *)aligned_dip_data, (void *)di.p, param_byte_size);
+        aligned_RYp_data = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)(RYp_data));
+	}
 
+        //ifx_mbedtls_memcpy((void *)aligned_PiXp_data, (void *)Pi.X.p, param_byte_size);
+        //ifx_mbedtls_memcpy((void *)aligned_PiYp_data, (void *)Pi.Y.p, param_byte_size);
+        //ifx_mbedtls_memcpy((void *)aligned_dip_data, (void *)di.p, param_byte_size);
 
         Cy_Crypto_Core_EC_NistP_PointMultiplication (crypto_obj.base,
                 curveId,
                 aligned_PiXp_data, aligned_PiYp_data,
                 aligned_dip_data, aligned_RXp_data, aligned_RYp_data);
-        
-            
-        memcpy( (void *)R->X.p, (void *)aligned_RXp_data, param_byte_size);
-        memcpy( (void *)R->Y.p, (void *)aligned_RYp_data, param_byte_size);        
-    
+
+
+        //ifx_mbedtls_memcpy( (void *)R->X.p, (void *)aligned_RXp_data, param_byte_size);
+        //ifx_mbedtls_memcpy( (void *)R->Y.p, (void *)aligned_RYp_data, param_byte_size);
+		if(aligned_RXp_data != (uint8_t *)R->X.p)
+		{
+			MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary_le( &R->X, aligned_RXp_data, param_byte_size ) );
+		}
+		if(aligned_RYp_data != (uint8_t *)R->Y.p)
+		{
+			MBEDTLS_MPI_CHK( mbedtls_mpi_read_binary_le( &R->Y, aligned_RYp_data, param_byte_size ) );
+		}
         /* R.Z coordinate should be 1 */
         MBEDTLS_MPI_CHK( mbedtls_mpi_lset( &R->Z, 1 ) );
 
@@ -1346,14 +1362,12 @@ static int ecp_mul_comb( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
          */
         if( f_rng != 0 )
             MBEDTLS_MPI_CHK( ecp_randomize_jac( grp, R, f_rng, p_rng ) );
-    
+
         MBEDTLS_MPI_CHK( ecp_normalize_jac( grp, R ) );
-            
-        goto cleanup;
-    
-    }
+
+		goto cleanup;
 #endif
-     
+
     Cy_Crypto_Core_EC_NistP_PointMultiplication (crypto_obj.base,
             curveId,
             (uint8_t *)Pi.X.p, (uint8_t *)Pi.Y.p,
@@ -1383,14 +1397,14 @@ static int ecp_mul_comb( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
 
 cleanup:
 
-    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
-            if (PiXp_data != NULL) free(PiXp_data);
-            if (PiYp_data != NULL) free(PiYp_data);
-            if (dip_data != NULL) free(dip_data);
-            if (RXp_data != NULL) free(RXp_data);
-            if (RYp_data != NULL) free(RYp_data);
-    #endif
-    
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    if (PiXp_data != NULL) ifx_mbedtls_free(PiXp_data);
+    if (PiYp_data != NULL) ifx_mbedtls_free(PiYp_data);
+    if (dip_data != NULL) ifx_mbedtls_free(dip_data);
+    if (RXp_data != NULL) ifx_mbedtls_free(RXp_data);
+    if (RYp_data != NULL) ifx_mbedtls_free(RYp_data);
+#endif
+
     mbedtls_mpi_free(&di);
     mbedtls_ecp_point_free(&Pi);
 
@@ -2475,9 +2489,9 @@ cleanup:
     if( verbose != 0 )
     {
         if( ret != 0 )
-            mbedtls_printf( "failed (%u)\n", (unsigned int) i );
+            ifx_mbedtls_printf( "failed (%u)\n", (unsigned int) i );
         else
-            mbedtls_printf( "passed\n" );
+            ifx_mbedtls_printf( "passed\n" );
     }
     return( ret );
 }
@@ -2535,7 +2549,7 @@ int mbedtls_ecp_self_test( int verbose )
 #endif
 
     if( verbose != 0 )
-        mbedtls_printf( "  ECP SW test #1 (constant op_count, base point G): " );
+        ifx_mbedtls_printf( "  ECP SW test #1 (constant op_count, base point G): " );
     /* Do a dummy multiplication first to trigger precomputation */
     MBEDTLS_MPI_CHK( mbedtls_mpi_lset( &m, 2 ) );
     MBEDTLS_MPI_CHK( mbedtls_ecp_mul( &grp, &P, &m, &grp.G, self_test_rng, NULL ) );
@@ -2547,7 +2561,7 @@ int mbedtls_ecp_self_test( int verbose )
         goto cleanup;
 
     if( verbose != 0 )
-        mbedtls_printf( "  ECP SW test #2 (constant op_count, other point): " );
+        ifx_mbedtls_printf( "  ECP SW test #2 (constant op_count, other point): " );
     /* We computed P = 2G last time, use it */
     ret = self_test_point( verbose,
                            &grp, &R, &m, &P,
@@ -2562,7 +2576,7 @@ int mbedtls_ecp_self_test( int verbose )
 
 #if defined(MBEDTLS_ECP_MONTGOMERY_ENABLED)
     if( verbose != 0 )
-        mbedtls_printf( "  ECP Montgomery test (constant op_count): " );
+        ifx_mbedtls_printf( "  ECP Montgomery test (constant op_count): " );
 #if defined(MBEDTLS_ECP_DP_CURVE25519_ENABLED)
     MBEDTLS_MPI_CHK( mbedtls_ecp_group_load( &grp, MBEDTLS_ECP_DP_CURVE25519 ) );
 #elif defined(MBEDTLS_ECP_DP_CURVE448_ENABLED)
@@ -2581,7 +2595,7 @@ int mbedtls_ecp_self_test( int verbose )
 cleanup:
 
     if( ret < 0 && verbose != 0 )
-        mbedtls_printf( "Unexpected error, return code = %08X\n", (unsigned int) ret );
+        ifx_mbedtls_printf( "Unexpected error, return code = %08X\n", (unsigned int) ret );
 
     mbedtls_ecp_group_free( &grp );
     mbedtls_ecp_point_free( &R );
@@ -2589,7 +2603,7 @@ cleanup:
     mbedtls_mpi_free( &m );
 
     if( verbose != 0 )
-        mbedtls_printf( "\n" );
+        ifx_mbedtls_printf( "\n" );
 
     return( ret );
 }

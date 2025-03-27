@@ -178,8 +178,11 @@ void cy_hw_sha_init(void *ctx, uint32_t ctxSize)
     CY_CRYPTO_CHECK_PARAM( ctx != NULL );
     CY_CRYPTO_CHECK_PARAM( ctxSize > 0u );
 
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+	ifx_mbedtls_memset((void*)ctx, 0u, (size_t)ctxSize);
+#else
     cy_hw_zeroize(ctx, ctxSize);
-
+#endif
     (void)cy_hw_crypto_reserve((cy_cmgr_crypto_hw_t *)ctx, CY_CMGR_CRYPTO_COMMON);
 }
 
@@ -189,8 +192,11 @@ void cy_hw_sha_free(void *ctx, uint32_t ctxSize)
     CY_CRYPTO_CHECK_PARAM( ctxSize > 0u);
 
     cy_hw_crypto_release((cy_cmgr_crypto_hw_t *)ctx);
-
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+	ifx_mbedtls_memset((void*)ctx, 0u, (size_t)ctxSize);
+#else
     cy_hw_zeroize(ctx, ctxSize);
+#endif
 }
 
 int cy_hw_sha_start(cy_cmgr_crypto_hw_t *obj, cy_stc_crypto_sha_state_t *hashState,
@@ -267,9 +273,14 @@ void cy_hw_sha_clone( void *ctxDst, const void *ctxSrc, uint32_t ctxSize,
     CY_CRYPTO_CHECK_PARAM( shaBuffersDst != NULL );
 
     (void)cy_hw_crypto_reserve((cy_cmgr_crypto_hw_t *)ctxDst, CY_CMGR_CRYPTO_COMMON);
-
+	/*Note: If DCache is enabled, the dst sha_state and buffer structures needs to aligned before copy
+	hence, the actual context copy is done in the ALT sha clone API*/
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+	(void)ctxSize;
+#else
     Cy_Crypto_Core_MemCpy(((cy_cmgr_crypto_hw_t *)ctxSrc)->base, ctxDst, ctxSrc, (uint16_t)ctxSize);
-    Cy_Crypto_Core_Sha_Init(((cy_cmgr_crypto_hw_t *)ctxSrc)->base, hashStateDst, (cy_en_crypto_sha_mode_t)hashStateDst->mode, shaBuffersDst);
+#endif
+	Cy_Crypto_Core_Sha_Init(((cy_cmgr_crypto_hw_t *)ctxSrc)->base, hashStateDst, (cy_en_crypto_sha_mode_t)hashStateDst->mode, shaBuffersDst);
 }
 
 void cy_hw_memset(void *data, uint8_t val, uint32_t dataSize)

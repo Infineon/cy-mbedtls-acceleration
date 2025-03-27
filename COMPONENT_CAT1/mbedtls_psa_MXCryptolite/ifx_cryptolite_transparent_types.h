@@ -43,11 +43,17 @@ typedef struct
 } ifx_cryptolite_transparent_hash_operation_t;
 #endif
 
-#if defined(IFX_PSA_CRYPTOLITE_HMAC)
+#if defined(IFX_PSA_CRYPTOLITE_MAC)
 typedef struct
 {
     psa_algorithm_t mac_type;
-    cy_stc_cryptolite_context_hmac_sha256_t hmac_context;
+    #if defined(IFX_PSA_CRYPTOLITE_CMAC)
+    cy_stc_cryptolite_aes_state_t cmac_state;
+    cy_stc_cryptolite_aes_buffers_t cmac_buffer;
+    #endif
+    #if defined(IFX_PSA_CRYPTOLITE_HMAC)
+    cy_stc_cryptolite_context_hmac_sha256_t hmac_context;        
+    #endif
 } ifx_cryptolite_transparent_mac_operation_t;
 #endif
 
@@ -91,6 +97,47 @@ typedef struct
     uint8_t tag_length;
 
 } ifx_cryptolite_transparent_aead_operation_t;
+#endif
+
+
+#if defined(IFX_PSA_CRYPTOLITE_KEY_DERIVATION)
+
+/**
+ * State identifier for multi-part key derivation operations.
+ */
+typedef uint32_t ifx_cryptolite_key_derivation_state_t;
+
+/// Newly initialized key derivation operation
+#define IFX_CRYPTOLITE_KEY_DERIVATION_STATE_INIT ((ifx_cryptolite_key_derivation_state_t)0)
+/// Setup done, waiting for key
+#define IFX_CRYPTOLITE_KEY_DERIVATION_STATE_NEED_KEY ((ifx_cryptolite_key_derivation_state_t)1)
+/// Active key derivation operation
+#define IFX_CRYPTOLITE_KEY_DERIVATION_STATE_ACTIVE ((ifx_cryptolite_key_derivation_state_t)2)
+/// Operating key derivation operation
+#define IFX_CRYPTOLITE_KEY_DERIVATION_STATE_OPERATING ((ifx_cryptolite_key_derivation_state_t)3)
+/// Finished key derivation operation
+#define IFX_CRYPTOLITE_KEY_DERIVATION_STATE_FINISHED ((ifx_cryptolite_key_derivation_state_t)4)
+
+/**
+ * State object for multi-part key derivation operations.
+ */
+typedef struct
+{
+    ifx_cryptolite_key_derivation_state_t state; ///< Operation state
+    size_t capacity; ///< Capacity of operation in bits
+    size_t remaining_capacity; ///< Remaining capacity of operation in bits
+    uint8_t key[16]; ///< Buffer for 128 bit shared key
+    size_t key_size; ///< Size of key in bytes (16)
+    uint32_t counter; ///< Iteration counter of KDF
+    uint8_t * label; ///< Pointer to label (dynamically allocated)
+    size_t label_size; ///< Actual size of label
+    uint8_t * seed; ///< Pointer to seed (dynamically allocated)
+    size_t seed_size; ///< Actual size of seed
+    uint8_t * fixed_data; ///< Pointer to fixed_data (dynamically allocated)
+    size_t fixed_data_size; ///< Actual size of fixed_data
+    uint8_t block[16]; ///< Block cache
+    uint8_t block_index; ///< Block cache
+} ifx_cryptolite_key_derivation_operation_t;
 #endif
 
 

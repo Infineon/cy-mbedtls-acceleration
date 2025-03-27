@@ -44,6 +44,8 @@
 
 #if defined(MBEDTLS_SHA256_ALT)
 
+#include "cy_cryptolite_common.h"
+
 /* Parameter validation macros based on platform_util.h */
 #define SHA256_VALIDATE_RET(cond)                           \
      MBEDTLS_INTERNAL_VALIDATE_RET( cond, MBEDTLS_ERR_SHA256_BAD_INPUT_DATA )

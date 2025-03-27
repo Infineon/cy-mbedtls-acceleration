@@ -48,7 +48,8 @@
 #if defined(MBEDTLS_ENTROPY_HARDWARE_ALT)
 
 #include "cy_cryptolite.h"
-
+#include "cy_cryptolite_common.h"
+#include "cryptolite_common.h"
 #define MBEDTLS_ERR_TRNG_BAD_INPUT_DATA  (-1)
 #define MAX_TRNG_BIT_SIZE                (32UL)
 

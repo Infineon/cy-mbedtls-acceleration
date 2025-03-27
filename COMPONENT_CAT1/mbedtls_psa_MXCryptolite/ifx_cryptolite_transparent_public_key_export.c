@@ -420,7 +420,7 @@ psa_status_t ifx_cryptolite_transparent_export_public_key(
     {
         return PSA_ERROR_NOT_SUPPORTED;
     }
-
+    
     if((NULL == attributes) || ((NULL == key_buffer) && (key_buffer_size > 0))  || ((NULL == data) && (data_size > 0)) || (NULL == data_length))
     {
         return PSA_ERROR_INVALID_ARGUMENT;

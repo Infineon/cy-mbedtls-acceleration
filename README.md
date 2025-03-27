@@ -203,6 +203,7 @@ int main(void)
       * SECP521R1.
   - ECDH support for NIST P curves:
       * key generation
+      * EC25519
   - ECDSA support for NIST P curves:
       * sign,
       * verify
@@ -221,13 +222,21 @@ int main(void)
   - SHA:
       * SHA2-256,
   - ECDSA support for NIST P curves :
-    * verify for Curve SECP256R1 & SECP384R1
+    * Sign, verify for Curve SECP192R1, SECP224R1, SECP256R1 & SECP384R1
+  - EDDSA support for 25519 curve:
+      * sign,
+      * verify  
   - AES:
     * ECB: 128 bit Encryption,
     * CBC: 128 bit Encryption,
     * CFB: 128 bit Encryption & Decryption,
     * CTR: 128 bit Encryption & Decryption.
 
+**Note for using EDDSA 25519 algorithms in CAT1B MCUs:**
+
+    EDDSA 25519 support is not yet officially released as a part of mbedTLS Library, The mbedTLS proposed API for future release is implemented as
+    hardware accelerated ALT driver. User should include header file "eddsa_alt.h", define MBEDTLS_EDDSA_ALT macro in mbedtls config header file
+    and use MBEDTLS_ECP_DP_ED25519 as curve type to use the EDDSA feature. CAT1B does not support SHA-512, user needs to implement the support for SHA-512 algorithm, Please refer to eddsa_alt_sha512.c for reference implementation.
 ### License
 This project is licensed under the [Apache 2.0 License][apache-licenses] - see the [LICENSE][LICENSE] file for details
 

@@ -49,7 +49,14 @@
 #include "mbedtls/error.h"
 #include "mbedtls/compat-2.x.h"
 
+#if defined(MBEDTLS_BIGNUM_C)
+#include "mbedtls/bignum.h"
+#endif
+
 #if defined(MBEDTLS_AES_ALT)
+
+#include "crypto_common.h"
+#include "cy_crypto_core.h"
 
 /* Parameter validation macros based on platform_util.h */
 #define AES_VALIDATE_RET( cond )    \
@@ -57,19 +64,21 @@
 #define AES_VALIDATE( cond )        \
     MBEDTLS_INTERNAL_VALIDATE( cond )
 
-#include "crypto_common.h"
-#include "cy_crypto_core.h"
-
 void mbedtls_aes_init( mbedtls_aes_context *ctx )
 {
     AES_VALIDATE( ctx != NULL );
-
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    ifx_mbedtls_memset((void*)ctx, 0u, sizeof( mbedtls_aes_context ));
+#else
     cy_hw_zeroize(ctx, sizeof( mbedtls_aes_context ) );
-
-    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
-    ctx->input_array_ptr  = (uint8_t*)((size_t)ctx->input_array + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)ctx->input_array & 0x1F)));
-    ctx->output_array_ptr = (uint8_t*)((size_t)ctx->output_array + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)ctx->output_array & 0x1F)));
-    #endif
+#endif
+    /*Align context members*/
+    ctx->aes_state = (cy_stc_crypto_aes_state_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS(ctx->aes_state_t);
+    ctx->aes_buffers = (cy_stc_crypto_aes_buffers_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS(ctx->aes_buffers_t);
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    ctx->input_array_ptr  = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS(ctx->input_array);
+    ctx->output_array_ptr = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS(ctx->output_array);
+#endif
 
     (void)cy_hw_crypto_reserve((cy_cmgr_crypto_hw_t *)ctx, CY_CMGR_CRYPTO_COMMON);
 }
@@ -79,12 +88,15 @@ void mbedtls_aes_free( mbedtls_aes_context *ctx )
     if( ctx == NULL )
         return;
 
-    if (ctx->aes_state.buffers != NULL) {
-        Cy_Crypto_Core_Aes_Free(ctx->obj.base, &ctx->aes_state);
+    if (ctx->aes_state->buffers != NULL) {
+        Cy_Crypto_Core_Aes_Free(ctx->obj.base, ctx->aes_state);
     }
     cy_hw_crypto_release((cy_cmgr_crypto_hw_t *)ctx);
-
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    ifx_mbedtls_memset((void*)ctx, 0u, sizeof( mbedtls_aes_context ));
+#else
     cy_hw_zeroize(ctx, sizeof( mbedtls_aes_context ) );
+#endif
 }
 
 #if defined(MBEDTLS_CIPHER_MODE_XTS)
@@ -114,12 +126,14 @@ static int aes_set_keys( mbedtls_aes_context *ctx, const unsigned char *key,
                     unsigned int keybits )
 {
     int ret = 0;
+    unsigned char *key_ptr;
     cy_en_crypto_aes_key_length_t key_length;
     cy_en_crypto_status_t status;
-
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    uint8_t *key_array = NULL;
+#endif
     AES_VALIDATE_RET( ctx != NULL );
     AES_VALIDATE_RET( key != NULL );
-
 
     switch( keybits )
     {
@@ -129,8 +143,30 @@ static int aes_set_keys( mbedtls_aes_context *ctx, const unsigned char *key,
         default : return( MBEDTLS_ERR_AES_INVALID_KEY_LENGTH );
     }
 
-    status = Cy_Crypto_Core_Aes_InitContext(ctx->obj.base, key, key_length, &ctx->aes_state, &ctx->aes_buffers);
+    key_ptr = (unsigned char *)key;
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    unsigned int keybytes = keybits >> 3;
+    if( !CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)key, keybytes) )
+    {
+        key_array = (uint8_t *)ifx_mbedtls_malloc(CY_CRYPTO_ALIGN_CACHE_LINE(keybytes)+CY_CRYPTO_DCAHCE_PADDING_SIZE);
+        if (NULL == key_array)
+        {
+            return AES_MEM_ALLOC_FAILED;
+        }
+        key_ptr = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)key_array);
+        ifx_mbedtls_memcpy((void*)key_ptr, (void*)key, keybytes);
 
+    }
+#endif
+
+    status = Cy_Crypto_Core_Aes_InitContext(ctx->obj.base, key_ptr, key_length, ctx->aes_state, ctx->aes_buffers);
+
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    if(key_array != NULL)
+    {
+        ifx_mbedtls_free(key_array);
+    }
+#endif
     if (CY_CRYPTO_SUCCESS != status)
     {
         ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
@@ -251,36 +287,38 @@ int mbedtls_internal_aes_encrypt( mbedtls_aes_context *ctx,
     cy_en_crypto_status_t status;
 
     AES_VALIDATE_RET( ctx != NULL );
-    AES_VALIDATE_RET( ctx->aes_state.buffers != NULL );
+    AES_VALIDATE_RET( ctx->aes_state->buffers != NULL );
 
 #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
     const void *input_ptr = NULL;
     void *output_ptr = NULL;
-    if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)input, 16) && ((size_t)input % DCACHE_LINE_ALIGNMENT_SIZE != 0 || 16 % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+    if( CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)input, 16) )
     {
-        memcpy((void*)ctx->input_array_ptr, (void*)input, CY_CRYPTO_AES_BLOCK_SIZE);
-        input_ptr = ctx->input_array_ptr;
+        input_ptr = input;
     }
     else
     {
-    	input_ptr = input;
+        ifx_mbedtls_memcpy((void*)ctx->input_array_ptr, (void*)input, CY_CRYPTO_AES_BLOCK_SIZE);
+        input_ptr = ctx->input_array_ptr;
     }
-    if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)output, 16) && ((size_t)output % DCACHE_LINE_ALIGNMENT_SIZE != 0 || 16 % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+    if( CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)output, 16) )
+    {
+        output_ptr = output;
+    }
+    else
     {
         output_ptr = ctx->output_array_ptr;
     }
-    else
-    {
-    	output_ptr = output;
-    }
-    status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_ENCRYPT, output_ptr, input_ptr, &ctx->aes_state);
+
+    status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_ENCRYPT, output_ptr, input_ptr, ctx->aes_state);
+
     if( output_ptr != output )
     {
-        memcpy((void*)output, (void*)output_ptr, CY_CRYPTO_AES_BLOCK_SIZE);
+        ifx_mbedtls_memcpy((void*)output, (void*)output_ptr, CY_CRYPTO_AES_BLOCK_SIZE);
     }
-    
+
 #else
-    status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_ENCRYPT, output, input, &ctx->aes_state);
+    status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_ENCRYPT, output, input, ctx->aes_state);
 #endif
     if (CY_CRYPTO_SUCCESS != status)
     {
@@ -310,36 +348,37 @@ int mbedtls_internal_aes_decrypt( mbedtls_aes_context *ctx,
     cy_en_crypto_status_t status;
 
     AES_VALIDATE_RET( ctx != NULL );
-    AES_VALIDATE_RET( ctx->aes_state.buffers != NULL );
+    AES_VALIDATE_RET( ctx->aes_state->buffers != NULL );
 
 #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
     const void *input_ptr = NULL;
     void *output_ptr = NULL;
-    if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)input, 16) && ((size_t)input % DCACHE_LINE_ALIGNMENT_SIZE != 0 || 16 % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+    if( CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)input, 16) )
     {
-        memcpy((void*)ctx->input_array_ptr, (void*)input, CY_CRYPTO_AES_BLOCK_SIZE);
-        input_ptr = ctx->input_array_ptr;
+        input_ptr = input;
     }
     else
     {
-    	input_ptr = input;
+        ifx_mbedtls_memcpy((void*)ctx->input_array_ptr, (void*)input, CY_CRYPTO_AES_BLOCK_SIZE);
+        input_ptr = ctx->input_array_ptr;
     }
-    if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)output, 16) && ((size_t)output % DCACHE_LINE_ALIGNMENT_SIZE != 0 || 16 % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+    if( CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)output, 16) )
+    {
+        output_ptr = output;
+    }
+    else
     {
         output_ptr = ctx->output_array_ptr;
     }
-    else
-    {
-    	output_ptr = output;
-    }
-    status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_DECRYPT, output_ptr, input_ptr, &ctx->aes_state);
+
+    status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_DECRYPT, output_ptr, input_ptr, ctx->aes_state);
     if( output_ptr != output )
     {
-        memcpy((void*)output, (void*)output_ptr, CY_CRYPTO_AES_BLOCK_SIZE);
+        ifx_mbedtls_memcpy((void*)output, (void*)output_ptr, CY_CRYPTO_AES_BLOCK_SIZE);
     }
 
 #else
-    status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_DECRYPT, output, input, &ctx->aes_state);
+    status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_DECRYPT, output, input, ctx->aes_state);
 #endif
 
     if (CY_CRYPTO_SUCCESS != status)
@@ -390,6 +429,11 @@ int mbedtls_aes_crypt_cbc( mbedtls_aes_context *ctx,
 {
     int ret = 0;
     cy_en_crypto_status_t status;
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    uint8_t *iv_array = NULL;
+    uint8_t *input_array = NULL;
+    uint8_t *output_array = NULL;
+#endif
 
     AES_VALIDATE_RET( ctx != NULL );
     AES_VALIDATE_RET( iv != NULL );
@@ -399,75 +443,96 @@ int mbedtls_aes_crypt_cbc( mbedtls_aes_context *ctx,
     if( length % CY_CRYPTO_AES_BLOCK_SIZE )
         return( MBEDTLS_ERR_AES_INVALID_INPUT_LENGTH );
 
-    AES_VALIDATE_RET( ctx->aes_state.buffers != NULL);
+    AES_VALIDATE_RET( ctx->aes_state->buffers != NULL);
 
     if( mode == MBEDTLS_AES_DECRYPT )
     {
-
 #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
-        if((Cy_Syslib_IsMemCacheable(MPU, (uint32_t)iv, CY_CRYPTO_AES_BLOCK_SIZE) && ((size_t)iv % DCACHE_LINE_ALIGNMENT_SIZE != 0 || CY_CRYPTO_AES_BLOCK_SIZE % DCACHE_LINE_ALIGNMENT_SIZE != 0)))
-            
-         {    
-            uint8_t *iv_array = (uint8_t *)malloc(CY_CRYPTO_AES_BLOCK_SIZE + (2*DCACHE_LINE_ALIGNMENT_SIZE));
-            uint8_t *input_array = (uint8_t *)malloc(length + (2*DCACHE_LINE_ALIGNMENT_SIZE));
-            uint8_t *output_array = (uint8_t *)malloc(CY_CRYPTO_AES_BLOCK_SIZE + (2*DCACHE_LINE_ALIGNMENT_SIZE));
-            uint8_t *temp_array = (uint8_t *)malloc(CY_CRYPTO_AES_BLOCK_SIZE + (2*DCACHE_LINE_ALIGNMENT_SIZE));
-    
-            if (NULL == iv_array || NULL== input_array || NULL== output_array || NULL == temp_array)
-            {
-                return AES_MEM_ALLOC_FAILED;
-            }
-    
-            uint8_t *aligned_iv_array = (uint8_t*)((size_t)iv_array + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)iv_array & 0x1F)));
-            uint8_t *aligned_input_array = (uint8_t*)((size_t)input_array + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)input_array & 0x1F)));
-            uint8_t *aligned_output_array = (uint8_t*)((size_t)output_array + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)output_array & 0x1F)));
-            uint8_t *aligned_temp_array = (uint8_t*)((size_t)temp_array + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)temp_array & 0x1F)));
+        uint8_t *temp_array = NULL;
+        uint8_t *aligned_iv_array = (uint8_t *)iv;
+        uint8_t *aligned_input_array = (uint8_t *)input;
+        uint8_t *aligned_output_array = (uint8_t *)output;
+        uint8_t *aligned_temp_array = NULL;
+        uint8_t *input_ptr = (uint8_t *)input;
 
-             memcpy((void*)aligned_iv_array, (void*)iv, CY_CRYPTO_AES_BLOCK_SIZE);
-             memcpy((void*)aligned_input_array, input, length);
+        if( (! CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)iv, CY_CRYPTO_AES_BLOCK_SIZE)))
+        {
+            iv_array = (uint8_t *)ifx_mbedtls_malloc(CY_CRYPTO_ALIGN_CACHE_LINE(CY_CRYPTO_AES_BLOCK_SIZE)+CY_CRYPTO_DCAHCE_PADDING_SIZE);
+            MBEDTLS_MPI_CHK((iv_array == NULL) ? AES_MEM_ALLOC_FAILED : 0);
+            aligned_iv_array = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)iv_array);
+            ifx_mbedtls_memcpy((void*)aligned_iv_array, (void*)iv, CY_CRYPTO_AES_BLOCK_SIZE);
+        }
+        if(! CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)input, length))
+        {
+            input_array = (uint8_t *)ifx_mbedtls_malloc(CY_CRYPTO_ALIGN_CACHE_LINE(CY_CRYPTO_AES_BLOCK_SIZE)+CY_CRYPTO_DCAHCE_PADDING_SIZE);
+            MBEDTLS_MPI_CHK((input_array == NULL) ? AES_MEM_ALLOC_FAILED : 0);
+            aligned_input_array = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)input_array);
+        }
+        if(! CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)output, length))
+        {
+            output_array = (uint8_t *)ifx_mbedtls_malloc(CY_CRYPTO_ALIGN_CACHE_LINE(CY_CRYPTO_AES_BLOCK_SIZE)+CY_CRYPTO_DCAHCE_PADDING_SIZE);
+            MBEDTLS_MPI_CHK((output_array == NULL) ? AES_MEM_ALLOC_FAILED : 0);
+            aligned_output_array = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)output_array);
+        }
+
+        temp_array = (uint8_t *)ifx_mbedtls_malloc(CY_CRYPTO_ALIGN_CACHE_LINE(CY_CRYPTO_AES_BLOCK_SIZE)+CY_CRYPTO_DCAHCE_PADDING_SIZE);
+        MBEDTLS_MPI_CHK((temp_array == NULL) ? AES_MEM_ALLOC_FAILED : 0);
+        aligned_temp_array = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)temp_array);
 
         while(( length > 0 ) )
-        {    
-            
+        {
+            if(aligned_input_array != input_ptr)
+            {
+                ifx_mbedtls_memcpy((void*)aligned_input_array, input_ptr, CY_CRYPTO_AES_BLOCK_SIZE);
+            }
             Cy_Crypto_Core_MemCpy(ctx->obj.base, aligned_temp_array, aligned_input_array, CY_CRYPTO_AES_BLOCK_SIZE);
 
-            status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_DECRYPT, aligned_output_array, aligned_input_array, &ctx->aes_state);
+            status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_DECRYPT, aligned_output_array, aligned_input_array, ctx->aes_state);
 
             Cy_Crypto_Core_MemXor(ctx->obj.base, aligned_output_array, aligned_output_array, aligned_iv_array, CY_CRYPTO_AES_BLOCK_SIZE);
             Cy_Crypto_Core_MemCpy(ctx->obj.base, aligned_iv_array, aligned_temp_array, CY_CRYPTO_AES_BLOCK_SIZE);
-          
-            memcpy(output, aligned_output_array, (uint16_t)CY_CRYPTO_AES_BLOCK_SIZE);
+
+            if(aligned_output_array != output)
+            {
+                ifx_mbedtls_memcpy(output, aligned_output_array, (uint16_t)CY_CRYPTO_AES_BLOCK_SIZE);
+            }
+            else
+            {
+                aligned_output_array += CY_CRYPTO_AES_BLOCK_SIZE;
+            }
+
+            if(aligned_input_array == input_ptr)
+            {
+                aligned_input_array += CY_CRYPTO_AES_BLOCK_SIZE;
+            }
 
             output += CY_CRYPTO_AES_BLOCK_SIZE;
-           
-            aligned_input_array  += CY_CRYPTO_AES_BLOCK_SIZE;
+            input_ptr += CY_CRYPTO_AES_BLOCK_SIZE;
             length -= CY_CRYPTO_AES_BLOCK_SIZE;
-            
+
             if (CY_CRYPTO_SUCCESS != status)
             {
                 ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
+                ifx_mbedtls_free(temp_array);
                 break;
-                
             }
-        
         }
-        memcpy((void*)iv, (void*)aligned_iv_array, CY_CRYPTO_AES_BLOCK_SIZE);
-        free(iv_array);
-        free(input_array);
-        free(output_array);
-        free(temp_array);
-        
-        return ret;
-         
+        if(aligned_iv_array != iv)
+        {
+            ifx_mbedtls_memcpy((void*)iv, (void*)aligned_iv_array, CY_CRYPTO_AES_BLOCK_SIZE);
         }
-         
-#endif
+        if(temp_array != NULL)
+        {
+            ifx_mbedtls_free(temp_array);
+        }
+        goto cleanup;
+#else
         unsigned char temp[CY_CRYPTO_AES_BLOCK_SIZE];
         while(( length > 0 ) && (ret == 0))
-        { 
+        {
             Cy_Crypto_Core_MemCpy(ctx->obj.base, temp, input, CY_CRYPTO_AES_BLOCK_SIZE);
 
-            status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_DECRYPT, output, input, &ctx->aes_state);
+            status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_DECRYPT, output, input, ctx->aes_state);
 
             Cy_Crypto_Core_MemXor(ctx->obj.base, output, output, iv, CY_CRYPTO_AES_BLOCK_SIZE);
             Cy_Crypto_Core_MemCpy(ctx->obj.base, iv, temp, CY_CRYPTO_AES_BLOCK_SIZE);
@@ -482,65 +547,87 @@ int mbedtls_aes_crypt_cbc( mbedtls_aes_context *ctx,
                 ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
             }
         }
+#endif
     }
     else
     {
-        
 #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
-        if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)iv, CY_CRYPTO_AES_BLOCK_SIZE) && ((size_t)iv % DCACHE_LINE_ALIGNMENT_SIZE != 0 || CY_CRYPTO_AES_BLOCK_SIZE % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
-        { 
-            uint8_t *iv_array = (uint8_t *)malloc(CY_CRYPTO_AES_BLOCK_SIZE + (2*DCACHE_LINE_ALIGNMENT_SIZE));
-            uint8_t *input_array = (uint8_t *)malloc(length + (2*DCACHE_LINE_ALIGNMENT_SIZE));
-            uint8_t *output_array = (uint8_t *)malloc(CY_CRYPTO_AES_BLOCK_SIZE + (2*DCACHE_LINE_ALIGNMENT_SIZE));
+        uint8_t *aligned_iv_array = (uint8_t *)iv;
+        uint8_t *aligned_input_array = (uint8_t *)input;
+        uint8_t *aligned_output_array = (uint8_t *)output;
+        uint8_t *input_ptr = (uint8_t *)input;
 
-             if (NULL == iv_array || NULL== input_array || NULL== output_array)
-            {
-                return AES_MEM_ALLOC_FAILED;
-            }
-    
-            uint8_t *aligned_iv_array = (uint8_t*)((size_t)iv_array + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)iv_array & 0x1F)));
-            uint8_t *aligned_input_array = (uint8_t*)((size_t)input_array + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)input_array & 0x1F)));
-            uint8_t *aligned_output_array = (uint8_t*)((size_t)output_array + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)output_array & 0x1F)));
-
-            memcpy((void*)aligned_iv_array, (void*)iv, (uint16_t)CY_CRYPTO_AES_BLOCK_SIZE);
-            memcpy((void*)aligned_input_array, input, length);
-           
-			while(( length > 0 ))
-			{
-				Cy_Crypto_Core_MemXor(ctx->obj.base, aligned_output_array, aligned_input_array, aligned_iv_array, CY_CRYPTO_AES_BLOCK_SIZE);
-
-				status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_ENCRYPT, aligned_output_array, aligned_output_array, &ctx->aes_state);
-
-				Cy_Crypto_Core_MemCpy(ctx->obj.base, aligned_iv_array, aligned_output_array, CY_CRYPTO_AES_BLOCK_SIZE);
-
-				
-				memcpy(output, aligned_output_array, (uint16_t)CY_CRYPTO_AES_BLOCK_SIZE);
-
-				output += CY_CRYPTO_AES_BLOCK_SIZE;
-				aligned_input_array  += CY_CRYPTO_AES_BLOCK_SIZE;
-				length -= CY_CRYPTO_AES_BLOCK_SIZE;
-			   
-				if (CY_CRYPTO_SUCCESS != status)
-				{
-					ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
-					break;
-				}
-			}
-        memcpy((void*)iv, (void*)aligned_iv_array, CY_CRYPTO_AES_BLOCK_SIZE);
-        free(iv_array);
-        free(input_array);
-        free(output_array);
-        return ret;
+        if(! CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)iv, CY_CRYPTO_AES_BLOCK_SIZE))
+        {
+            iv_array = (uint8_t *)ifx_mbedtls_malloc(CY_CRYPTO_ALIGN_CACHE_LINE(CY_CRYPTO_AES_BLOCK_SIZE)+CY_CRYPTO_DCAHCE_PADDING_SIZE);
+            MBEDTLS_MPI_CHK((iv_array == NULL) ? AES_MEM_ALLOC_FAILED : 0);
+            aligned_iv_array = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)iv_array);
+            ifx_mbedtls_memcpy((void*)aligned_iv_array, (void*)iv, CY_CRYPTO_AES_BLOCK_SIZE);
         }
-#endif
+        if(! CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)input, length))
+        {
+            input_array = (uint8_t *)ifx_mbedtls_malloc(CY_CRYPTO_ALIGN_CACHE_LINE(CY_CRYPTO_AES_BLOCK_SIZE)+CY_CRYPTO_DCAHCE_PADDING_SIZE);
+            MBEDTLS_MPI_CHK((input_array == NULL) ? AES_MEM_ALLOC_FAILED : 0);
+            aligned_input_array = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)input_array);
+        }
+        if(! CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)output, length))
+        {
+            output_array = (uint8_t *)ifx_mbedtls_malloc(CY_CRYPTO_ALIGN_CACHE_LINE(CY_CRYPTO_AES_BLOCK_SIZE)+CY_CRYPTO_DCAHCE_PADDING_SIZE);
+            MBEDTLS_MPI_CHK((output_array == NULL) ? AES_MEM_ALLOC_FAILED : 0);
+            aligned_output_array = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)output_array);
+        }
+        while(( length > 0 ))
+        {
+            if(aligned_input_array != input_ptr)
+            {
+                ifx_mbedtls_memcpy((void*)aligned_input_array, input_ptr, CY_CRYPTO_AES_BLOCK_SIZE);
+            }
+            Cy_Crypto_Core_MemXor(ctx->obj.base, aligned_output_array, aligned_input_array, aligned_iv_array, CY_CRYPTO_AES_BLOCK_SIZE);
+
+            status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_ENCRYPT, aligned_output_array, aligned_output_array, ctx->aes_state);
+
+            Cy_Crypto_Core_MemCpy(ctx->obj.base, aligned_iv_array, aligned_output_array, CY_CRYPTO_AES_BLOCK_SIZE);
+
+            if(output != aligned_output_array)
+            {
+                ifx_mbedtls_memcpy(output, aligned_output_array, (uint16_t)CY_CRYPTO_AES_BLOCK_SIZE);
+            }
+            else
+            {
+                aligned_output_array +=CY_CRYPTO_AES_BLOCK_SIZE;
+            }
+
+            if(aligned_input_array == input_ptr)
+            {
+                aligned_input_array += CY_CRYPTO_AES_BLOCK_SIZE;
+            }
+
+            output += CY_CRYPTO_AES_BLOCK_SIZE;
+            input_ptr  += CY_CRYPTO_AES_BLOCK_SIZE;
+            length -= CY_CRYPTO_AES_BLOCK_SIZE;
+
+            if (CY_CRYPTO_SUCCESS != status)
+            {
+                ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
+                break;
+            }
+        }
+
+        if(aligned_iv_array != iv)
+        {
+            ifx_mbedtls_memcpy((void*)iv, (void*)aligned_iv_array, CY_CRYPTO_AES_BLOCK_SIZE);
+        }
+
+        goto cleanup;
+#else
         while(( length > 0 ) && (ret == 0))
         {
             Cy_Crypto_Core_MemXor(ctx->obj.base, output, input, iv, CY_CRYPTO_AES_BLOCK_SIZE);
 
-            status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_ENCRYPT, output, output, &ctx->aes_state);
+            status = Cy_Crypto_Core_Aes_Ecb(ctx->obj.base, CY_CRYPTO_ENCRYPT, output, output, ctx->aes_state);
 
             Cy_Crypto_Core_MemCpy(ctx->obj.base, iv, output, CY_CRYPTO_AES_BLOCK_SIZE);
-            
+
             input  += CY_CRYPTO_AES_BLOCK_SIZE;
             output += CY_CRYPTO_AES_BLOCK_SIZE;
             length -= CY_CRYPTO_AES_BLOCK_SIZE;
@@ -550,8 +637,23 @@ int mbedtls_aes_crypt_cbc( mbedtls_aes_context *ctx,
                 ret = MBEDTLS_ERR_PLATFORM_HW_ACCEL_FAILED;
             }
         }
+#endif
     }
-
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+cleanup:
+    if(iv_array != NULL)
+    {
+        ifx_mbedtls_free(iv_array);
+    }
+    if(input_array != NULL)
+    {
+        ifx_mbedtls_free(input_array);
+    }
+    if(output_array != NULL)
+    {
+        ifx_mbedtls_free(output_array);
+    }
+#endif
     return( ret );
 }
 
@@ -658,7 +760,7 @@ int mbedtls_aes_crypt_xts( mbedtls_aes_xts_context *ctx,
              * and this tweak for the lefover bytes. Save the current tweak for
              * the leftovers and then update the current tweak for use on this,
              * the last full block. */
-            mbedtls_memcpy( prev_tweak, tweak, sizeof( tweak ) );
+            ifx_mbedtls_memcpy( prev_tweak, tweak, sizeof( tweak ) );
             mbedtls_gf128mul_x_ble( tweak, tweak );
         }
 
@@ -795,7 +897,7 @@ int mbedtls_aes_crypt_cfb8( mbedtls_aes_context *ctx,
 
     while( length-- )
     {
-        mbedtls_memcpy( ov, iv, 16 );
+        ifx_mbedtls_memcpy( ov, iv, 16 );
         mbedtls_aes_crypt_ecb( ctx, MBEDTLS_AES_ENCRYPT, iv, iv );
 
         if( mode == MBEDTLS_AES_DECRYPT )
@@ -806,7 +908,7 @@ int mbedtls_aes_crypt_cfb8( mbedtls_aes_context *ctx,
         if( mode == MBEDTLS_AES_ENCRYPT )
             ov[16] = c;
 
-        mbedtls_memcpy( iv, ov + 1, 16 );
+        ifx_mbedtls_memcpy( iv, ov + 1, 16 );
     }
 
     return( 0 );

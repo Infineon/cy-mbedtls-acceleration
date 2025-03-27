@@ -33,6 +33,13 @@
 
 #include "mbedtls/build_info.h"
 
+#ifndef MBEDTLS_INTERNAL_VALIDATE_RET
+#define MBEDTLS_INTERNAL_VALIDATE_RET(cond, ret)  do { } while (0)
+#endif
+#ifndef MBEDTLS_INTERNAL_VALIDATE
+#define MBEDTLS_INTERNAL_VALIDATE(cond)           do { } while (0)
+#endif
+
 #if defined(MBEDTLS_PLATFORM_C)
 #include "mbedtls/platform.h"
 #else

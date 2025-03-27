@@ -57,6 +57,37 @@ psa_status_t  ifx_cryptolite_status_to_psa_status (cy_en_cryptolite_status_t cry
     }
 }
     
+psa_status_t ifx_psa_rsa_keylen_supported(uint32_t key_len)
+{
+    if(key_len >= 128U && key_len <= 512U)
+    {
+    
+        switch (key_len)     
+        {
+            case 128: /* 1024 bits */
+                return PSA_SUCCESS;
+                break;
+            case 192: /* 1536 bits */
+                return PSA_SUCCESS;
+                break;
+            case 256: /* 2048 bits */
+                return PSA_SUCCESS;
+                break;
+            case 384: /* 3072 bits */
+                return PSA_SUCCESS;
+                break;
+            case 512: /* 4096 bits */
+                return PSA_SUCCESS;
+                break;
+            default:
+                return PSA_ERROR_NOT_SUPPORTED;
+                break;
+        }
+
+    }
+    
+    return PSA_ERROR_NOT_SUPPORTED;
+}
 
 //This should finally be replaced by Cy_Cryptolite_Vu_memcmp
 uint8_t ifx_psa_safer_memcmp(const uint8_t *a,

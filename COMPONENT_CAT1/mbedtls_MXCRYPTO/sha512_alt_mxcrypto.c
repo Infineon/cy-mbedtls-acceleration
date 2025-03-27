@@ -43,6 +43,8 @@
 
 #if defined(MBEDTLS_SHA512_ALT)
 
+#include "crypto_common.h"
+
 /* Parameter validation macros based on platform_util.h */
 #define SHA512_VALIDATE_RET(cond)                           \
     MBEDTLS_INTERNAL_VALIDATE_RET( cond, MBEDTLS_ERR_SHA512_BAD_INPUT_DATA )
@@ -53,9 +55,16 @@ void mbedtls_sha512_init( mbedtls_sha512_context *ctx )
     SHA512_VALIDATE( ctx != NULL );
 
     cy_hw_sha_init(ctx, sizeof( mbedtls_sha512_context ));
-    #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
-    ctx->output_array_ptr = (uint8_t*)((size_t)ctx->output_array + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)ctx->output_array & 0x1F)));
-    #endif    
+
+    ctx->hashState = (cy_stc_crypto_sha_state_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)ctx->hashState_t);
+#if (CY_IP_MXCRYPTO_VERSION == 1u)
+    ctx->shaBuffers = (cy_stc_crypto_v1_sha512_buffers_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)ctx->shaBuffers_t);
+#else
+    ctx->shaBuffers = (cy_stc_crypto_v2_sha512_buffers_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)ctx->shaBuffers_t);
+#endif
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    ctx->output_array_ptr = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)ctx->output_array);
+#endif
 }
 
 void mbedtls_sha512_free( mbedtls_sha512_context *ctx )
@@ -70,8 +79,20 @@ void mbedtls_sha512_clone( mbedtls_sha512_context *dst, const mbedtls_sha512_con
 {
     SHA512_VALIDATE( dst != NULL );
     SHA512_VALIDATE( src != NULL );
-
-    cy_hw_sha_clone(dst, src, sizeof(mbedtls_sha512_context), &dst->hashState, &dst->shaBuffers);
+#if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
+    dst->hashState = (cy_stc_crypto_sha_state_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)dst->hashState_t);
+	ifx_mbedtls_memcpy((void *)dst->hashState, (void *)src->hashState, sizeof(cy_stc_crypto_sha_state_t));
+#if (CY_IP_MXCRYPTO_VERSION == 1u)
+    dst->shaBuffers = (cy_stc_crypto_v1_sha512_buffers_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)dst->shaBuffers_t);
+	ifx_mbedtls_memcpy((void *)dst->shaBuffers, (void *)src->shaBuffers, sizeof(cy_stc_crypto_v1_sha512_buffers_t));
+#else
+    dst->shaBuffers = (cy_stc_crypto_v2_sha512_buffers_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)dst->shaBuffers_t);
+	ifx_mbedtls_memcpy((void *)dst->shaBuffers, (void *)src->shaBuffers, sizeof(cy_stc_crypto_v2_sha512_buffers_t));
+#endif
+    dst->output_array_ptr = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)dst->output_array);
+	dst->obj = src->obj;
+#endif
+    cy_hw_sha_clone(dst, src, sizeof(mbedtls_sha512_context), dst->hashState, dst->shaBuffers);
 }
 
 /*
@@ -81,9 +102,9 @@ int mbedtls_sha512_starts( mbedtls_sha512_context *ctx, int is384)
 {
     SHA512_VALIDATE_RET( ctx != NULL );
 
-    return cy_hw_sha_start(&ctx->obj, &ctx->hashState,
+    return cy_hw_sha_start(&ctx->obj, ctx->hashState,
                            ( is384 == 0 ) ? CY_CRYPTO_MODE_SHA512 : CY_CRYPTO_MODE_SHA384,
-                           &ctx->shaBuffers);
+                           ctx->shaBuffers);
 }
 
 /*
@@ -97,25 +118,46 @@ int mbedtls_sha512_update( mbedtls_sha512_context *ctx, const unsigned char *inp
         return (0);
 
 #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
-    if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)input, ilen) && ((size_t)input % DCACHE_LINE_ALIGNMENT_SIZE != 0 || ilen % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+    if( !CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)input, ilen))
     {
-    int ret;
-    uint8_t *input_data = (uint8_t *)malloc(ilen + (2*DCACHE_LINE_ALIGNMENT_SIZE));
-    if (NULL == input_data)
-    {
-        return MBEDTLS_ERR_SHA512_BAD_INPUT_DATA;
-    }
-    uint8_t *aligned_input_data = (uint8_t*)((size_t)input_data + ((size_t)DCACHE_LINE_ALIGNMENT_SIZE - ((size_t)input_data & 0x1F)));
+        int ret = 0;
+        uint32_t blk_cnt;
+		uint32_t blk_frag;
+		uint8_t *input_ptr;
+        uint8_t *input_data = (uint8_t *)ifx_mbedtls_malloc(CY_CRYPTO_ALIGN_CACHE_LINE(CY_CRYPTO_SHA512_BLOCK_SIZE)+CY_CRYPTO_DCAHCE_PADDING_SIZE);
+        if (NULL == input_data)
+        {
+            return MBEDTLS_ERR_SHA512_BAD_INPUT_DATA;
+        }
+        uint8_t *aligned_input_data = (uint8_t*)CY_CRYPTO_DCAHCE_ALIGN_ADDRESS((size_t)input_data);
 
-    memcpy((void *)aligned_input_data, (void *)input, ilen);
+		blk_cnt = ilen >> 7u;	// div by CY_CRYPTO_SHA512_BLOCK_SIZE;
+		blk_frag = ilen & (size_t)(CY_CRYPTO_SHA512_BLOCK_SIZE - 1);
+		input_ptr = (uint8_t *)input;
 
-    ret = cy_hw_sha_update(&ctx->obj, &ctx->hashState, (uint8_t *)aligned_input_data, ilen);
+		while(blk_cnt > 0u)
+		{
+			ifx_mbedtls_memcpy((void *)aligned_input_data, (void *)input_ptr, CY_CRYPTO_SHA512_BLOCK_SIZE);
+			ret = cy_hw_sha_update(&ctx->obj, ctx->hashState, (uint8_t *)aligned_input_data, CY_CRYPTO_SHA512_BLOCK_SIZE);
+			if(ret != 0)
+			{
+				ifx_mbedtls_free(input_data);
+				return ret;
+			}
+			input_ptr += CY_CRYPTO_SHA512_BLOCK_SIZE;
+			blk_cnt--;
+		}
+		if(blk_frag != 0u)
+		{
+			ifx_mbedtls_memcpy((void *)aligned_input_data, (void *)input_ptr, blk_frag);
+			ret = cy_hw_sha_update(&ctx->obj, ctx->hashState, (uint8_t *)aligned_input_data, blk_frag);
+		}
 
-    free(input_data);
-    return ret;
+        ifx_mbedtls_free(input_data);
+        return ret;
     }
 #endif
-    return cy_hw_sha_update(&ctx->obj, &ctx->hashState, input, ilen);
+    return cy_hw_sha_update(&ctx->obj, ctx->hashState, input, ilen);
 }
 
 /*
@@ -127,29 +169,29 @@ int mbedtls_sha512_finish( mbedtls_sha512_context *ctx, unsigned char *output )
     SHA512_VALIDATE_RET( (unsigned char *)output != NULL );
 
 #if (((CY_CPU_CORTEX_M7) && defined (ENABLE_CM7_DATA_CACHE)) || CY_CPU_CORTEX_M55)
-    if( Cy_Syslib_IsMemCacheable(MPU, (uint32_t)output, 32) && ((size_t)output % DCACHE_LINE_ALIGNMENT_SIZE != 0) )
+    if( !CY_MBTLS_IS_MEM_CACHABLE_ALIGNED((uint32_t)output, 64))
     {
-    int ret;
-    
-    ret = cy_hw_sha_finish(&ctx->obj, &ctx->hashState, ctx->output_array_ptr);
+        int ret;
 
-    if(CY_CRYPTO_MODE_SHA384 == ctx->hashState.mode)
-    {
-        memcpy(output, ctx->output_array_ptr, CY_CRYPTO_SHA384_DIGEST_SIZE);
-    }
-    else if(CY_CRYPTO_MODE_SHA512 == ctx->hashState.mode)
-    {
-        memcpy(output, ctx->output_array_ptr, CY_CRYPTO_SHA512_DIGEST_SIZE);
-    }
-    else
-    {
-        /* Do Nothing */
-    }
+        ret = cy_hw_sha_finish(&ctx->obj, ctx->hashState, ctx->output_array_ptr);
 
-    return ret;
+        if(CY_CRYPTO_MODE_SHA384 == ctx->hashState->mode)
+        {
+            ifx_mbedtls_memcpy(output, ctx->output_array_ptr, CY_CRYPTO_SHA384_DIGEST_SIZE);
+        }
+        else if(CY_CRYPTO_MODE_SHA512 == ctx->hashState->mode)
+        {
+            ifx_mbedtls_memcpy(output, ctx->output_array_ptr, CY_CRYPTO_SHA512_DIGEST_SIZE);
+        }
+        else
+        {
+            /* Do Nothing */
+        }
+
+        return ret;
     }
 #endif
-    return cy_hw_sha_finish(&ctx->obj, &ctx->hashState, output);
+    return cy_hw_sha_finish(&ctx->obj, ctx->hashState, output);
 }
 
 int mbedtls_internal_sha512_process( mbedtls_sha512_context *ctx, const unsigned char data[128] )
@@ -157,7 +199,7 @@ int mbedtls_internal_sha512_process( mbedtls_sha512_context *ctx, const unsigned
     SHA512_VALIDATE_RET( ctx != NULL );
     SHA512_VALIDATE_RET( (const unsigned char *)data != NULL );
 
-    return cy_hw_sha_process(&ctx->obj, &ctx->hashState, data);
+    return cy_hw_sha_process(&ctx->obj, ctx->hashState, data);
 }
 
 #endif /* MBEDTLS_SHA512_ALT */

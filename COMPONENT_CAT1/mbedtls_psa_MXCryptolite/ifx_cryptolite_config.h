@@ -48,9 +48,16 @@ extern "C" {
  * - ECDSA verification
  */
 
+#if defined(PSA_WANT_KEY_TYPE_DERIVE)
+#define IFX_PSA_CRYPTOLITE_KEY_DERIVATION
+#endif
 
 #if defined(PSA_WANT_ALG_HMAC)
 #define IFX_PSA_CRYPTOLITE_HMAC
+#endif
+
+#if defined(PSA_WANT_ALG_CMAC)
+#define IFX_PSA_CRYPTOLITE_CMAC
 #endif
 
 #if defined(PSA_WANT_ALG_SHA_256)
@@ -100,18 +107,13 @@ extern "C" {
 #define IFX_PSA_CRYPTOLITE_ECC_SECP_R1_384
 #endif
 
-#if defined(PSA_WANT_ECC_SECP_R1_521)
-#define IFX_PSA_CRYPTOLITE_ECC_SECP_R1_521
-#endif
-
 
 /*  ECDH configuration */
-#if (defined(PSA_WANT_ALG_ECDH) &&  defined(PSA_WANT_KEY_TYPE_ECC_KEY_PAIR))        \
+#if (defined(PSA_WANT_ALG_ECDH) &&  (defined(PSA_WANT_KEY_TYPE_ECC_KEY_PAIR) || defined(PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_BASIC)))        \
   && (defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_192)                                      \
   || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_224)                                        \
   || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_256)                                        \
-  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_384)                                        \
-  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_521))     
+  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_384))     
 #define IFX_PSA_CRYPTOLITE_ECDH
 #endif
 
@@ -124,8 +126,7 @@ extern "C" {
   && (defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_192)                                      \
   || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_224)                                        \
   || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_256)                                        \
-  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_384)                                        \
-  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_521))     
+  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_384))     
 #define IFX_PSA_CRYPTOLITE_ECC_PUBLIC_KEY_EXPORT
 #endif
 
@@ -134,25 +135,39 @@ extern "C" {
 #define IFX_PSA_CRYPTOLITE_PUBLIC_KEY_EXPORT
 #endif
 
-#if defined(PSA_WANT_ALG_ECDSA) && (defined(PSA_WANT_KEY_TYPE_ECC_PUBLIC_KEY)  || defined(PSA_WANT_KEY_TYPE_ECC_KEY_PAIR)) \
+#if defined(PSA_WANT_ALG_ECDSA)
+#if defined(PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_BASIC)
+#define IFX_PSA_CRYPTOLITE_ECDSA_SIGN
+#else
+  #if defined(PSA_WANT_KEY_TYPE_ECC_PUBLIC_KEY) || defined(PSA_WANT_KEY_TYPE_ECC_KEY_PAIR) \
   && (defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_192)                                      \
   || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_224)                                        \
   || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_256)                                        \
-  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_384)                                        \
-  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_521))     
+  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_384))     
 #define IFX_PSA_CRYPTOLITE_ECDSA_VERIFY
-#define IFX_PSA_CRYPTOLITE_KEY_GENERATION
 #define IFX_PSA_CRYPTOLITE_ECDSA_VERIFY_USE_PK
+  #endif
+#endif /*PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_BASIC*/
+
+#if defined(PSA_WANT_KEY_TYPE_ECC_PUBLIC_KEY) // Defined to be compatible with mbedtls 3.6
+#if !defined(IFX_PSA_CRYPTOLITE_ECDSA_VERIFY)
+  #define IFX_PSA_CRYPTOLITE_ECDSA_VERIFY
+#endif
+#if !defined(IFX_PSA_CRYPTOLITE_ECDSA_VERIFY_USE_PK)
+  #define IFX_PSA_CRYPTOLITE_ECDSA_VERIFY_USE_PK
+#endif
+#endif /*PSA_WANT_KEY_TYPE_ECC_PUBLIC_KEY*/
+
+#endif /*PSA_WANT_ALG_ECDSA*/
+
+#if  (defined(PSA_WANT_KEY_TYPE_ECC_KEY_PAIR)  || defined(PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_GENERATE))     \
+  && (defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_192)                                                         \
+  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_224)                                                          \
+  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_256)                                                          \
+  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_384))     
+#define IFX_PSA_CRYPTOLITE_KEY_GENERATION
 #endif
 
-#if defined(PSA_WANT_ALG_ECDSA)                                                        \
-  && (defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_192)                                      \
-  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_224)                                        \
-  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_256)                                        \
-  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_384)                                        \
-  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_521))     
-#define IFX_PSA_CRYPTOLITE_ECDSA_SIGN
-#endif
 
 /*  RSA configuration */
 #if defined(PSA_WANT_ALG_RSA_PKCS1V15_SIGN) && \
@@ -173,6 +188,10 @@ extern "C" {
 
 #endif
 
+#if defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_521)
+#error "IFX_PSA_CRYPTOLITE_ECC_SECP_R1_521 is not supported"
+#endif
+
 #if defined(IFX_PSA_CRYPTOLITE_RSA_SIGN)
 #error "IFX_PSA_CRYPTOLITE_RSA_SIGN is not supported"
 #endif
@@ -191,8 +210,23 @@ extern "C" {
 #define IFX_PSA_CRYPTOLITE_CIPHER
 #endif
 
+#if defined(IFX_PSA_CRYPTOLITE_HMAC) || defined(IFX_PSA_CRYPTOLITE_CMAC)           
+#define IFX_PSA_CRYPTOLITE_MAC
+#endif
+
 #if defined(IFX_PSA_CRYPTOLITE_CCM)
 #define IFX_PSA_CRYPTOLITE_AEAD
+#endif
+
+/* Check Key derivation configuration */
+#if defined(IFX_PSA_CRYPTOLITE_KEY_DERIVATION) && (defined(IFX_PSA_CRYPTOLITE_USE_STATIC_MEM) || defined(IFX_PSA_CRYPTOLITE_USE_STACK_MEM))
+#include <stdlib.h>
+#if !defined(ifx_mxcryptolite_malloc)
+#define ifx_mxcryptolite_malloc malloc
+#endif
+#if !defined(ifx_mxcryptolite_free)
+#define ifx_mxcryptolite_free free
+#endif
 #endif
 
 /* Check SHA configuration */
@@ -221,14 +255,14 @@ extern "C" {
 /* Check ECDSA configuration */
 #if (defined(IFX_PSA_CRYPTOLITE_ECDSA_VERIFY)) && !(defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_192)   \
   || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_224)  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_256) \
-  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_384)   || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_521))     
+  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_384))     
 #error "IFX_PSA_CRYPTOLITE_ECC_SECP_R1_xxx curve not defined for ECDSA functionality"
 #endif
 
 
 #if (defined(IFX_PSA_CRYPTOLITE_ECDH)) && !(defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_192)   \
   || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_224)  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_256) \
-  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_384)   || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_521))     
+  || defined(IFX_PSA_CRYPTOLITE_ECC_SECP_R1_384))     
 #error "IFX_PSA_CRYPTOLITE_ECC_SECP_R1_xxx curve not defined for ECDH functionality"
 #endif
 

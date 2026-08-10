@@ -1,4 +1,5 @@
-#if defined (COMPONENT_CAT1)
+#ifndef MBEDTLS_ALT_CONFIG_H
+#define MBEDTLS_ALT_CONFIG_H
 
 #include "cy_device.h"
 #include "cy_syslib.h"
@@ -7,7 +8,7 @@
 #include "cy_cryptolite_common.h"
 #endif
 
-#if CY_CPU_CORTEX_M0P || ((CY_CPU_CORTEX_M7 || CY_CPU_CORTEX_M4 || CY_CPU_CORTEX_M33) && !defined(CY_DEVICE_SECURE))
+#if CY_CPU_CORTEX_M0P || ((CY_CPU_CORTEX_M7 || CY_CPU_CORTEX_M4 || CY_CPU_CORTEX_M33 || CY_CPU_CORTEX_M55) && !defined(CY_DEVICE_SECURE) && !defined(CY_TFM_PSA_SUPPORTED))
 #if defined (CY_IP_MXCRYPTO)
 #if (CPUSS_CRYPTO_AES == 1)
     #define MBEDTLS_AES_ALT
@@ -31,6 +32,11 @@
     #define MBEDTLS_ECDSA_SIGN_ALT
     #define MBEDTLS_ECDSA_VERIFY_ALT
     #define MBEDTLS_ECDH_GEN_PUBLIC_ALT
+    
+#if ((CY_CRYPTO_DRV_VERSION_MAJOR == 2) && (CY_CRYPTO_DRV_VERSION_MINOR >= 120)) 
+    #define MBEDTLS_EDDSA_ALT
+#endif 
+
 #endif /* CPUSS_CRYPTO_VU */
 #elif defined (CY_IP_MXCRYPTOLITE)
 #if (CRYPTOLITE_SHA_PRESENT == 1)
@@ -45,5 +51,7 @@
 #endif /* CRYPTOLITE_VU_PRESENT */
 #endif /*(((CY_CRYPTOLITE_DRV_VERSION_MAJOR == 2) && (CY_CRYPTOLITE_DRV_VERSION_MINOR >= 41)) || (CY_CRYPTOLITE_DRV_VERSION_MAJOR >= 3))*/
 #endif /*  CY_IP_MXCRYPTO, CY_IP_MXCRYPTOLITE */
-#endif/* CY_CPU_CORTEX_M0P || ((CY_CPU_CORTEX_M7 || CY_CPU_CORTEX_M4 || CY_CPU_CORTEX_M33) && !defined(CY_DEVICE_SECURE)) */
-#endif /* COMPONENT_CAT1 */
+#endif/* CY_CPU_CORTEX_M0P || ((CY_CPU_CORTEX_M7 || CY_CPU_CORTEX_M4 || CY_CPU_CORTEX_M33 || CY_CPU_CORTEX_M55) && !defined(CY_DEVICE_SECURE)) */
+
+#endif /* MBEDTLS_ALT_CONFIG_H */
+

@@ -22,12 +22,13 @@
 #define XMSS_HASH_PADDING_PRF 3
 #define XMSS_HASH_PADDING_PRF_KEYGEN 4
 
+/*  (Pe852: "expression must be a pointer to a complete object type"). */
 #if defined(CY_IP_MXCRYPTOLITE)
-#define ifx_memcpy(dest,src,size) Cy_Cryptolite_Memcpy(CRYPTOLITE,(uint8_t*)dest,(uint8_t*)src,(uint32_t)size)
+#define ifx_memcpy(dest,src,size) Cy_Cryptolite_Memcpy(CRYPTOLITE,(uint8_t*)(dest),(uint8_t*)(src),(uint32_t)(size))
 #elif (CY_IP_MXCRYPTO)
-#define ifx_memcpy(dest,src,size) Cy_Crypto_Core_MemCpy(CRYPTO,(void*)dest,(void const*)src,(uint16_t)size)
+#define ifx_memcpy(dest,src,size) Cy_Crypto_Core_MemCpy(CRYPTO,(void*)(dest),(void const*)(src),(uint16_t)(size))
 #else 
-#define ifx_memcpy(dest,src,size) memcpy((void*)dest,(const void*)src,(size_t)size)
+#define ifx_memcpy(dest,src,size) memcpy((void*)(dest),(const void*)(src),(size_t)(size))
 #endif
 
 

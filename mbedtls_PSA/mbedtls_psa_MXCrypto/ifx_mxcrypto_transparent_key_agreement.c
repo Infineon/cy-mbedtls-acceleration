@@ -26,7 +26,12 @@
 #include "ifx_mxcrypto_transparent_key_agreement.h"
 #if defined(IFX_PSA_MXCRYPTO_ECDH)
 #if defined (CY_IP_MXCRYPTO)
+/* ecp.h: public in classic Mbed TLS; moved to mbedtls/private/ in TF-PSA-Crypto. */
+#if !defined(IFX_TF_PSA_CRYPTO)
 #include "mbedtls/ecp.h"
+#else
+#include "mbedtls/private/ecp.h"
+#endif
 #include "mbedtls/private_access.h"
 
 

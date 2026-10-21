@@ -27,7 +27,12 @@
 #if !defined(IFX_CRYPTOLITE_TRANSPARENT_FUNCS_H)
 #define IFX_CRYPTOLITE_TRANSPARENT_FUNCS_H
 
+/* TF-PSA-Crypto builds define IFX_TF_PSA_CRYPTO; classic Mbed TLS builds do not. */
+#if defined(IFX_TF_PSA_CRYPTO)
+#include "tf-psa-crypto/build_info.h"
+#else
 #include "mbedtls/build_info.h"
+#endif
 
 #include "ifx_cryptolite_transparent_hash.h"
 #include "ifx_cryptolite_transparent_mac.h"

@@ -32,9 +32,29 @@
 
 #if defined (CY_IP_MXCRYPTOLITE)
 
+#if defined(IFX_TF_PSA_CRYPTO)
+#error "cy-mbedtls-acceleration *_ALT implementations are not supported against ifx-tf-psa-crypto: the classic crypto MBEDTLS_*_ALT interface was removed in TF-PSA-Crypto 1.0 / Mbed TLS 4.0. Use the PSA transparent drivers (IFX_PSA_*_PRESENT) instead."
+#endif
+
+#include "mbedtls/build_info.h"
+
+/* This file is an EdDSA _ALT support shim (the SHA-512 context and callbacks
+ * used by ed25519_alt_mxcryptolite.c) */
+#if defined(MBEDTLS_EDDSA_ALT)
+
 #include <string.h>
 #include "cy_cryptolite_common.h"
+
+/* Allow only *_alt implementations to access private members of structures */
+#define MBEDTLS_ALLOW_PRIVATE_ACCESS
+
+/* mbedtls/sha512.h: classic Mbed TLS path. TF-PSA-Crypto relocated the same
+ * definitions to mbedtls/private/sha512.h (no mbedtls/sha512.h shim exists there). */
+#if defined(IFX_TF_PSA_CRYPTO)
+#include "mbedtls/private/sha512.h"
+#else
 #include "mbedtls/sha512.h"
+#endif
 
 /*******************************************************************************
  * Macros
@@ -129,4 +149,5 @@ cy_en_cryptolite_status_t Cy_ed25519_sha512_finish(void *context, uint8_t *outpu
         return CY_CRYPTOLITE_SUCCESS;
     }
 }
+#endif /* MBEDTLS_EDDSA_ALT */
 #endif //#if defined (CY_IP_MXCRYPTOLITE)

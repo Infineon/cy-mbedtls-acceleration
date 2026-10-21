@@ -46,6 +46,30 @@ static psa_status_t ifx_cryptolite_get_rsa_public_key( bool is_private, unsigned
 
 #if defined(IFX_PSA_CRYPTOLITE_ECDSA_VERIFY)
 
+/* Returns true if 0 < value < order (value big-endian, order little-endian, length bytes) */
+static bool ifx_cryptolite_ecdsa_scalar_in_range(const uint8_t *value, const uint8_t *order, size_t length)
+{
+    bool is_zero = true;
+    int cmp = 0;
+    size_t i;
+
+    for (i = 0u; i < length; i++)
+    {
+        uint8_t o = order[length - 1u - i];
+
+        if (0u != value[i])
+        {
+            is_zero = false;
+        }
+        if ((0 == cmp) && (value[i] != o))
+        {
+            cmp = (value[i] < o) ? -1 : 1;
+        }
+    }
+
+    return (!is_zero) && (cmp < 0);
+}
+
 /*******************************************************************************
 * Function Name: ifx_cryptolite_transparent_ecdsa_verify
 ****************************************************************************//**
@@ -86,6 +110,7 @@ static psa_status_t ifx_cryptolite_transparent_ecdsa_verify(const psa_key_attrib
     cy_stc_cryptolite_ecc_key  key;
     cy_en_cryptolite_sig_verify_result_t ver_result = CY_CRYPTOLITE_SIG_INVALID;
     size_t bytesize;
+    cy_stc_cryptolite_ecc_dp_type *dp;
     cy_en_cryptolite_status_t cy_status = CY_CRYPTOLITE_BAD_PARAMS;
     uint8_t *sig_ptr=NULL;
     uint8_t *pubkey_ptr=NULL;
@@ -105,6 +130,11 @@ static psa_status_t ifx_cryptolite_transparent_ecdsa_verify(const psa_key_attrib
     }
 
     if ( !PSA_ALG_IS_ECDSA( alg ) )
+    {
+        return PSA_ERROR_INVALID_ARGUMENT;
+    }
+
+    if ((NULL == hash) || (0u == hash_length))
     {
         return PSA_ERROR_INVALID_ARGUMENT;
     }
@@ -145,7 +175,20 @@ static psa_status_t ifx_cryptolite_transparent_ecdsa_verify(const psa_key_attrib
         return PSA_ERROR_NOT_SUPPORTED;
     }
 
+    dp = Cy_Cryptolite_ECC_GetCurveParams(key.curveID);
+    if (NULL == dp)
+    {
+        return PSA_ERROR_NOT_SUPPORTED;
+    }
+
     bytesize   = CY_CRYPTOLITE_BYTE_SIZE_OF_BITS(key_bits);
+
+    /* SEC 1 v2 4.1.4 step 1: r and s must be in [1, n-1] */
+    if (!ifx_cryptolite_ecdsa_scalar_in_range(signature, dp->order, bytesize) ||
+        !ifx_cryptolite_ecdsa_scalar_in_range(signature + bytesize, dp->order, bytesize))
+    {
+        return PSA_ERROR_INVALID_SIGNATURE;
+    }
 
     #if defined(IFX_PSA_CRYPTOLITE_USE_STATIC_MEM)
         static uint8_t public_key[IFX_CRYPTOLITE_ECC_MAX_PUB_KEY_SIZE];

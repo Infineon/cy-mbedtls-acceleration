@@ -26,20 +26,38 @@
  * SEC1 http://www.secg.org/index.php?action=secg,docs_secg
  */
 
+/* common.h: classic Mbed TLS internal header; absent in TF-PSA-Crypto. */
+#if !defined(IFX_TF_PSA_CRYPTO)
 #include "common.h"
+#endif
 #include "cy_device.h"
 
 #if defined (CY_IP_MXCRYPTO)
+
+#if defined(IFX_TF_PSA_CRYPTO)
+#error "cy-mbedtls-acceleration *_ALT implementations are not supported against ifx-tf-psa-crypto: the classic crypto MBEDTLS_*_ALT interface was removed in TF-PSA-Crypto 1.0 / Mbed TLS 4.0. Use the PSA transparent drivers (IFX_PSA_*_PRESENT) instead."
+#endif
 
 #include "mbedtls/build_info.h"
 
 #if defined(MBEDTLS_EDDSA_ALT)
 
-
-
+/* Classic Mbed TLS headers: only present when the crypto _ALT interface exists
+ * (Mbed TLS < 4.0). Already inside the _ALT gate, so the provider is classic and
+ * IFX_TF_PSA_CRYPTO is not defined; ecp.h is public here and common.h / error.h still
+ * exist (both were removed in TF-PSA-Crypto 1.0 / Mbed TLS 4.0). */
+#include "common.h"
 #include "mbedtls/platform_util.h"
+/* mbedtls/error.h: classic Mbed TLS only; removed in TF-PSA-Crypto. */
+#if !defined(IFX_TF_PSA_CRYPTO)
 #include "mbedtls/error.h"
+#endif
+/* ecp.h: public in classic Mbed TLS; moved to mbedtls/private/ in TF-PSA-Crypto. */
+#if !defined(IFX_TF_PSA_CRYPTO)
 #include "mbedtls/ecp.h"
+#else
+#include "mbedtls/private/ecp.h"
+#endif
 
 #include "cy_crypto_core.h"
 #include "cy_crypto_core_ecc.h"

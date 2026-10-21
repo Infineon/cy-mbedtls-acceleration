@@ -39,9 +39,17 @@
 #ifndef EDDSA_ALT_H
 #define EDDSA_ALT_H
 
+#if defined(MBEDTLS_EDDSA_ALT)
+/* Classic Mbed TLS headers: only present when the crypto _ALT interface exists
+ * (Mbed TLS < 4.0). */
 #include "mbedtls/bignum.h"
 #include "mbedtls/compat-2.x.h"
+/* ecp.h: public in classic Mbed TLS; moved to mbedtls/private/ in TF-PSA-Crypto. */
+#if !defined(IFX_TF_PSA_CRYPTO)
 #include "mbedtls/ecp.h"
+#else
+#include "mbedtls/private/ecp.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {

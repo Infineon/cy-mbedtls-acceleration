@@ -43,6 +43,47 @@ static psa_status_t ifx_mxcrypto_transparent_rsa_verify(const psa_key_attributes
 
 #if defined(IFX_PSA_MXCRYPTO_ECDSA_VERIFY)
 /*******************************************************************************
+* Function Name: ifx_mxcrypto_ecdsa_scalar_in_range
+****************************************************************************//**
+*
+* Checks that an ECDSA signature component is in the range [1, n-1]
+* (SEC 1 v2, section 4.1.4, step 1).
+*
+* \param value
+* The signature component (r or s), little-endian.
+*
+* \param order
+* The curve order n, little-endian.
+*
+* \param length
+* The size of value and order in bytes.
+*
+* \return true if 0 < value < order, otherwise false.
+*
+*******************************************************************************/
+static bool ifx_mxcrypto_ecdsa_scalar_in_range(const uint8_t *value, const uint8_t *order, size_t length)
+{
+    bool is_zero = true;
+    int cmp = 0;
+    size_t i = length;
+
+    while (i > 0u)
+    {
+        i--;
+        if (0u != value[i])
+        {
+            is_zero = false;
+        }
+        if ((0 == cmp) && (value[i] != order[i]))
+        {
+            cmp = (value[i] < order[i]) ? -1 : 1;
+        }
+    }
+
+    return (!is_zero) && (cmp < 0);
+}
+
+/*******************************************************************************
 * Function Name: ifx_mxcrypto_transparent_ecdsa_verify
 ****************************************************************************//**
 *
@@ -84,6 +125,7 @@ static psa_status_t ifx_mxcrypto_transparent_ecdsa_verify(const psa_key_attribut
     size_t key_bits = psa_get_key_bits(attributes);
     cy_stc_crypto_ecc_key  key;
     uint8_t stat = 0;
+    bool rs_in_range = false;
     cy_en_crypto_status_t cy_status = CY_CRYPTO_BAD_PARAMS;
     cy_stc_crypto_ecc_dp_type *dp;
     size_t bytesize;
@@ -99,6 +141,11 @@ static psa_status_t ifx_mxcrypto_transparent_ecdsa_verify(const psa_key_attribut
     }
 
     if ( !PSA_ALG_IS_ECDSA( alg ) )
+    {
+        return PSA_ERROR_INVALID_ARGUMENT;
+    }
+
+    if ((NULL == hash) || (0u == hash_length))
     {
         return PSA_ERROR_INVALID_ARGUMENT;
     }
@@ -188,7 +235,16 @@ static psa_status_t ifx_mxcrypto_transparent_ecdsa_verify(const psa_key_attribut
         Cy_Crypto_InvertEndianness(sig_ptr, bytesize);
         Cy_Crypto_InvertEndianness(sig_ptr + bytesize, bytesize);
 
-        if (PSA_KEY_TYPE_IS_ECC_KEY_PAIR(key_type))
+        /* SEC 1 v2 section 4.1.4 step 1: r and s must be in [1, n-1] */
+        rs_in_range = ifx_mxcrypto_ecdsa_scalar_in_range(sig_ptr, dp->order, bytesize) &&
+                      ifx_mxcrypto_ecdsa_scalar_in_range(sig_ptr + bytesize, dp->order, bytesize);
+
+        if (!rs_in_range)
+        {
+            /* Skip the PDL call: stat stays invalid and the signature is rejected below */
+            cy_status = CY_CRYPTO_SUCCESS;
+        }
+        else if (PSA_KEY_TYPE_IS_ECC_KEY_PAIR(key_type))
         {
 #if defined(IFX_PSA_MXCRYPTO_ECDSA_VERIFY_USE_PK)
             ifx_mxcrypto_memcpy(pkey_ptr, key_buffer, bytesize);
@@ -222,7 +278,7 @@ static psa_status_t ifx_mxcrypto_transparent_ecdsa_verify(const psa_key_attribut
             cy_status = CY_CRYPTO_SUCCESS;
         }
 
-        if(CY_CRYPTO_SUCCESS == cy_status)
+        if((CY_CRYPTO_SUCCESS == cy_status) && rs_in_range)
         {
             cy_status = Cy_Crypto_Core_ECC_VerifyHash(CRYPTO, sig_ptr, hash, (uint32_t)hash_length, &stat, &key);
         }

@@ -33,19 +33,27 @@
 #if CY_CPU_CORTEX_M0P || ((CY_CPU_CORTEX_M7 || CY_CPU_CORTEX_M4 || CY_CPU_CORTEX_M33 || CY_CPU_CORTEX_M55) && !defined(CY_DEVICE_SECURE) && !defined(CY_TFM_PSA_SUPPORTED))
 #if defined (CY_IP_MXCRYPTO)
 
-#include "mbedtls/build_info.h"
+#if defined(IFX_TF_PSA_CRYPTO)
+#error "cy-mbedtls-acceleration *_ALT implementations are not supported against ifx-tf-psa-crypto: the classic crypto MBEDTLS_*_ALT interface was removed in TF-PSA-Crypto 1.0 / Mbed TLS 4.0. Use the PSA transparent drivers (IFX_PSA_*_PRESENT) instead."
+#endif
 
+#include "mbedtls/build_info.h"
 
 #if defined(MBEDTLS_ENTROPY_C)
 
+#if defined(MBEDTLS_ENTROPY_HARDWARE_ALT)
+
+/* Classic Mbed TLS headers: only present when the crypto _ALT interface exists
+ * (Mbed TLS < 4.0). */
 #include <string.h>
 #include "mbedtls/entropy.h"
 #include "mbedtls/platform.h"
 #include "mbedtls/platform_util.h"
+/* mbedtls/error.h: classic Mbed TLS only; removed in TF-PSA-Crypto. */
+#if !defined(IFX_TF_PSA_CRYPTO)
 #include "mbedtls/error.h"
+#endif
 #include "mbedtls/compat-2.x.h"
-
-#if defined(MBEDTLS_ENTROPY_HARDWARE_ALT)
 
 #include "crypto_common.h"
 #include "cy_crypto_core.h"

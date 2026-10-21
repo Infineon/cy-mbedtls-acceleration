@@ -41,8 +41,12 @@
 #ifndef ECP_ALT_H
 #define ECP_ALT_H
 
+#if defined(MBEDTLS_ECP_ALT)
+/* Classic Mbed TLS headers: only present when the crypto _ALT interface exists
+ * (Mbed TLS < 4.0). */
 #include "mbedtls/bignum.h"
 #include "mbedtls/compat-2.x.h"
+#endif /* MBEDTLS_ECP_ALT */
 
 #ifdef __cplusplus
 extern "C" {

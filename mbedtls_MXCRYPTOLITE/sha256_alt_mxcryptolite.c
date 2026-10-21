@@ -29,20 +29,27 @@
 
 #if defined (CY_IP_MXCRYPTOLITE)
 
+#if defined(IFX_TF_PSA_CRYPTO)
+#error "cy-mbedtls-acceleration *_ALT implementations are not supported against ifx-tf-psa-crypto: the classic crypto MBEDTLS_*_ALT interface was removed in TF-PSA-Crypto 1.0 / Mbed TLS 4.0. Use the PSA transparent drivers (IFX_PSA_*_PRESENT) instead."
+#endif
+
 #include "mbedtls/build_info.h"
 
 #if defined(MBEDTLS_SHA256_C)
 
+#if defined(MBEDTLS_SHA256_ALT)
+
 /* Allow only *_alt implementations to access private members of structures*/
 #define MBEDTLS_ALLOW_PRIVATE_ACCESS
 
+/* Classic Mbed TLS headers: only present when the crypto _ALT interface exists
+ * (Mbed TLS < 4.0).  */
 #include "mbedtls/sha256.h"
 #include "mbedtls/platform_util.h"
 #include "mbedtls/compat-2.x.h"
 
 #include <string.h>
 
-#if defined(MBEDTLS_SHA256_ALT)
 #include "cryptolite_common.h"
 #include "cy_cryptolite_common.h"
 

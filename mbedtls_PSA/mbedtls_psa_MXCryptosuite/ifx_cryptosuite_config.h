@@ -31,7 +31,12 @@ extern "C" {
 #include IFX_PSA_CRYPTOSUITE_USER_CONFIG_FILE
 #else
 
+/* TF-PSA-Crypto builds define IFX_TF_PSA_CRYPTO; classic Mbed TLS builds do not. */
+#if defined(IFX_TF_PSA_CRYPTO)
+#include "tf-psa-crypto/build_info.h"
+#else
 #include "mbedtls/build_info.h"
+#endif
 #include "psa/crypto_driver_common.h"
 
 #if defined(IFX_PSA_CRYPTOSUITE_PRESENT)

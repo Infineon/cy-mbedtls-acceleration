@@ -37,16 +37,26 @@
 
 #if defined (CY_IP_MXCRYPTO)
 
+#if defined(IFX_TF_PSA_CRYPTO)
+#error "cy-mbedtls-acceleration *_ALT implementations are not supported against ifx-tf-psa-crypto: the classic crypto MBEDTLS_*_ALT interface was removed in TF-PSA-Crypto 1.0 / Mbed TLS 4.0. Use the PSA transparent drivers (IFX_PSA_*_PRESENT) instead."
+#endif
+
 #include "mbedtls/build_info.h"
 
 #if defined(MBEDTLS_ECDH_C)
+
+/* This file provides ECDH _ALT replacements. */
+#if defined(MBEDTLS_ECDH_GEN_PUBLIC_ALT) || defined(MBEDTLS_ECDH_COMPUTE_SHARED_ALT)
 
 /* Allow only *_alt implementations to access private members of structures*/
 #define MBEDTLS_ALLOW_PRIVATE_ACCESS
 
 #include "mbedtls/ecdh.h"
 #include "mbedtls/platform_util.h"
+/* mbedtls/error.h: classic Mbed TLS only; removed in TF-PSA-Crypto. */
+#if !defined(IFX_TF_PSA_CRYPTO)
 #include "mbedtls/error.h"
+#endif
 #include "mbedtls/compat-2.x.h"
 
 #include "cy_crypto_core_ecc.h"
@@ -57,6 +67,8 @@
     MBEDTLS_INTERNAL_VALIDATE_RET( cond, MBEDTLS_ERR_ECP_BAD_INPUT_DATA )
 #define ECDH_VALIDATE( cond )        \
     MBEDTLS_INTERNAL_VALIDATE( cond )
+
+#endif /* MBEDTLS_ECDH_GEN_PUBLIC_ALT || MBEDTLS_ECDH_COMPUTE_SHARED_ALT */
 
 #if defined(MBEDTLS_ECDH_GEN_PUBLIC_ALT)
 /**

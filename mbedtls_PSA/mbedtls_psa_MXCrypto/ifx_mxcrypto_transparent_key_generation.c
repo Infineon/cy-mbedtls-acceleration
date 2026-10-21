@@ -189,7 +189,7 @@ psa_status_t ifx_mxcrypto_transparent_generate_key(
     }
     else
     {
-        return PSA_ERROR_INVALID_ARGUMENT;
+        return PSA_ERROR_NOT_SUPPORTED;
     }
 
 }

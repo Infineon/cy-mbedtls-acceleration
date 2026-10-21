@@ -26,7 +26,12 @@
 #if !defined(IFX_CRYPTOLITE_COMMON_H)
 #define IFX_CRYPTOLITE_COMMON_H
 
+/* TF-PSA-Crypto builds define IFX_TF_PSA_CRYPTO; classic Mbed TLS builds do not. */
+#if defined(IFX_TF_PSA_CRYPTO)
+#include "tf-psa-crypto/build_info.h"
+#else
 #include "mbedtls/build_info.h"
+#endif
 
 #include "cy_device.h"
 

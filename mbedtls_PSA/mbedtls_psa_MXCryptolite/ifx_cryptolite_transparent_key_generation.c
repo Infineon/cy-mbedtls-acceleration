@@ -205,7 +205,12 @@ psa_status_t ifx_cryptolite_transparent_generate_key(
     }
     else
     {
-        return PSA_ERROR_INVALID_ARGUMENT;
+        /* Key types not handled by this accelerator (e.g. ML-DSA / ML-KEM key
+         * pairs) must return NOT_SUPPORTED so the PSA driver wrapper dispatch
+         * chain (psa_crypto_driver_wrappers.h) falls through to the next
+         * transparent accelerator (ifx_wolfcrypto_transparent_generate_key)
+         * instead of short-circuiting with an error. */
+        return PSA_ERROR_NOT_SUPPORTED;
     }
 
 }
